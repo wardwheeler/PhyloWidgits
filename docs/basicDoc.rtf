@@ -5,12 +5,38 @@
 \margl1440\margr1440\vieww16740\viewh10060\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
 
-\f0\fs24 \cf0 Compile:\
+\f0\fs24 \cf0 Files (source) are in the /src directory with separate subdirectory for each program.\
 \
-fastYX2XY: Cabal build fastYX2XY.cabal\
+Usage:\
+\
+snp2Chrom \
+	    Inputs VCF file of individual genome SNP variants and removes extraneous info\
+               outputting individual files for each chromosome with 4 tuple of\
+               information (Chromosome, Position, reference genome state, Variant state)\
+               BUT uses lazy text to help with memory consumption\
+\
+mergeChromSNP\
+	    Inputs multiple SNP files created by SNP2Chrom fomr VCF files\
+	    of individual genome SNP variants\
+	    outputs a TNT/POY/PCG legible file for phylogenetic analysis\
+	    checks that Chromosome IDs are same for input files (otherwise\
+	    position information would not make sense)\
+\
+fastaYX2XY\
+	   Takes fasta files by locus and return fasta files by taxon (ie file) name \
+\
+Compile:\
+\
+fastYX2XY : cabal build fastYX2XY.cabal\
+snp2Chrom : cabal build snp2Chrom.cabal\
+mergeChromSNP : cabal build mergeChromSNP.cabal\
 \
 Usage:\
 \
  fastYX2XY: fastYX2XY file1.fasta file2.fasta \'85.\
+ snp2Chrom: snp2Chrom infile stub(optional) > outfield\
+ mergeChromSNP: mergeChromSNP infile1 infikle2 ... > outfile\
+\
+\
 \
 }
