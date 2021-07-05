@@ -5,7 +5,7 @@ Description :  inputs multiple SNP files created by SNP2Chrom fomr VCF files
 			   outputs a TNT/POY/PCG legible file for phylogenertic analysis
 			   checks that Chromosome IDs are same for input files (otherwise
 			   position infomation would not make sense)
-Copyright   :  (c) 2019 Ward C. Wheeler, Division of Invertebrate Zoology, AMNH. All rights reserved.
+Copyright   :  (c) 2019-2021 Ward C. Wheeler, Division of Invertebrate Zoology, AMNH. All rights reserved.
 License     :  
 
 Redistribution and use in source and binary forms, with or without
@@ -41,16 +41,10 @@ Portability :  portable (I hope)
 module Main where
 
 import System.IO
-import System.Process
 import System.Environment
-import Debug.Trace
+-- import Debug.Trace
 import Data.List
-import Data.List.Split
-import Data.Char
-import Data.Maybe
 import qualified Data.Text.Lazy as L
-import qualified Data.Text.Lazy.IO as LIO
-import Data.Function (on)
 
 
 -- | line2FourTuple converts listof L.Text to 4-tuple of L.Text
