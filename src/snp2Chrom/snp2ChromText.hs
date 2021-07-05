@@ -74,7 +74,7 @@ baseRecode inString
     | T.length inString == 1 = inString
     | hasN inString = T.pack "N"
     | hasDel inString = T.pack "-"
-    {-
+    
     | inString == T.pack "A,C" = T.pack "M"
     | inString == T.pack "A,G" = T.pack "R"
     | inString == T.pack "A,T" = T.pack "W"
@@ -86,7 +86,7 @@ baseRecode inString
     | inString == T.pack "A,G,T" = T.pack "D"
     | inString == T.pack "C,G,T" = T.pack "B"
     | inString == T.pack "A,C,G,T" = T.pack "N"
-    -}
+    
     | inString == T.pack "AC" = T.pack "M"
     | inString == T.pack "AG" = T.pack "R"
     | inString == T.pack "AT" = T.pack "R"
@@ -111,6 +111,7 @@ filterLines inLines =
 
 -- | get4tuple reads lines from VCF file and extracts the 4 pieces of info:
 -- chromosome, position, reference genome state, variant state
+-- skips 3rd field
 get4tuple :: T.Text -> (T.Text, T.Text, T.Text, T.Text)
 get4tuple lineString =
     let parts = T.words lineString
@@ -120,7 +121,9 @@ get4tuple lineString =
         variantState = baseRecode $ T.pack $ sort $ filter (/= ',') $ nub  $ T.unpack  (parts !! 4)
     in
     --trace (show chromosomeNumber ++ " " ++ show position ++ " " ++ show referenceState ++ " " ++ show vaiantState) 
-    (chromosomeNumber, position, referenceState, variantState)
+    -- check for "monomorphic reference" where there is no variation but hasn't been filtered
+    if variantState == T.pack "." then  (chromosomeNumber, position, referenceState, referenceState)
+    else (chromosomeNumber, position, referenceState, variantState)
 
 -- | splitOnChrom splits the tuples list by the first element which is the chromosome 
 -- identifier 1-22, X, Y, mt
