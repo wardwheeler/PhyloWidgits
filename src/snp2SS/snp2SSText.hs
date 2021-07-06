@@ -48,18 +48,20 @@ import System.Environment
 import Data.List
 import qualified Data.Text.Lazy as L
 import qualified Data.Text.Lazy.IO as LIO
+import Debug.Trace
 
 -- | getLeaves takes a list of lines and the line begining with '#CHROM' contains the names
 -- of leaves
-getLeaves :: [L.Text] ->[L.Text]
+getLeaves :: [L.Text] -> ([L.Text],[L.Text])
 getLeaves inLines =
-    if null inLines then []
+    if null inLines then ([], [])
     else 
         let firstLine = L.words $ head inLines
             firstWord = head firstLine
         in
-        if firstWord == (L.pack "#CHROM") then drop 9 firstLine
-        else getLeaves (tail inLines)
+        if firstWord == (L.pack "#CHROM") then (drop 9 firstLine, tail inLines)
+        else  getLeaves (tail inLines)
+        
 
 -- | refineCharData converts '.' to '0'. aND OTHER STATES TO '1','2', or '3'
 refineCharData :: [L.Text] -> [L.Text]
@@ -91,13 +93,11 @@ getLineData inLine =
 
 -- | processFileData takes string from input SNP files and returns a pair of character information 
 -- and charracter assignment data
-processFileData :: L.Text -> [([L.Text], [L.Text])]
-processFileData fileString =
-    if L.null fileString then error "File contents empty"
+processFileData :: [L.Text] -> [([L.Text], [L.Text])]
+processFileData fileStringList =
+    if null fileStringList then error "File contents empty"
     else
-        let inLines = L.lines fileString
-        in
-        fmap getLineData inLines
+        fmap getLineData fileStringList
 
 -- | joinLists adds lists together pairwise
 joinListsText :: [L.Text] -> [L.Text] -> [L.Text]
@@ -145,45 +145,45 @@ main =
         --get file stubname for outputs, "HEAD" file with taxon info (line 27 starting with "#CHROM"),
         --then additional input files 
         args <- getArgs
-        if (length args < 3) then error "At least two input file required--HEAD and SNP"
+        if (length args < 2) then error "Must specify file stub string and a single input file--VCF/SNP"
         else do
             hPutStrLn stderr ("File output stub name: " ++ (head args))
-            hPutStrLn stderr ("There are " ++ (show $ length $ tail args) ++ " input files")
-            mapM_ (hPutStrLn stderr) (tail args)
+            hPutStrLn stderr (last args)
         inFileHandle <- openFile (args !! 1) ReadMode
-        inContents <- hGetContents inFileHandle
-        let inLines = L.lines $ L.pack inContents
-        let leafList = mapM L.unpack (getLeaves inLines)
+        inContents <- LIO.hGetContents inFileHandle
+        let inLines = L.lines inContents
+        -- let leafList = mapM L.unpack (getLeaves inLines)
+        let (leafList, restLines) = getLeaves inLines
         hPutStrLn stderr ("There are " ++ (show $ length leafList) ++ " taxa in data set")
-        mapM_ (hPutStr stderr) $ fmap (++ " " ) leafList
-        hPutStrLn stderr "\n"
-        dataFileContentsList <- mapM readFile (tail $ tail args)
-        let (_, charCodings) = unzip $ concat $ fmap processFileData $ fmap L.pack dataFileContentsList
+        
+        -- mapM_ (hPutStr stderr) $ intersperse " " (fmap L.unpack leafList)
+        -- hPutStrLn stderr "\n"
+        let (_, charCodings) = unzip $ processFileData restLines
 
         -- Output character info with char numbers in separate file
 
         -- Transpose character coding so rows are by taxon as opposed to columns
         -- then reverse so outgroups is first --specific to the dat set this is writen for
         --hPutStrLn stderr (show $ charCodings !! 0)
-        {-
+        
         let numCharacters = length charCodings
         hPutStrLn stderr ("There are " ++ show numCharacters ++ " characters")
-        -}
+        
         let taxonCharCodings = transpose charCodings
         --hPutStrLn stderr (show $ taxonCharCodings !! 0)
 
         -- Write charcater contents to temp file.
-        let fileGutsList = joinListsText (fmap L.pack leafList) (fmap L.concat taxonCharCodings)
-        mapM_ (LIO.appendFile ((head args) ++ ".tmp")) fileGutsList
+        -- let fileGutsList = joinListsText leafList (fmap L.concat taxonCharCodings)
+        -- mapM_ (LIO.appendFile ((head args) ++ ".tmp")) fileGutsList
         --read tempfile and get charcater number
 
         -- output final Hennig file
 
-
-        {-
-        let hennigString = getHennigString numCharacters (reverse leafList) (reverse $ fmap L.concat taxonCharCodings)
+        
+        
+        let hennigString = getHennigString numCharacters (reverse $ fmap L.unpack leafList) (reverse $ fmap L.concat taxonCharCodings)
         hPutStr stdout hennigString
-        -}
+        
         hPutStrLn stderr "All done"
 
 
