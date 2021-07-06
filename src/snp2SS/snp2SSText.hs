@@ -44,13 +44,8 @@ Portability :  portable (I hope)
 module Main where
 
 import System.IO
-import System.Process
 import System.Environment
-import Debug.Trace
 import Data.List
-import Data.List.Split
-import Data.Char
-import Data.Maybe
 import qualified Data.Text.Lazy as L
 import qualified Data.Text.Lazy.IO as LIO
 
@@ -163,7 +158,7 @@ main =
         mapM_ (hPutStr stderr) $ fmap (++ " " ) leafList
         hPutStrLn stderr "\n"
         dataFileContentsList <- mapM readFile (tail $ tail args)
-        let (charData, charCodings) = unzip $ concat $ fmap processFileData $ fmap L.pack dataFileContentsList
+        let (_, charCodings) = unzip $ concat $ fmap processFileData $ fmap L.pack dataFileContentsList
 
         -- Output character info with char numbers in separate file
 
