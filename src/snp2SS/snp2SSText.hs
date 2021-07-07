@@ -64,19 +64,21 @@ getLeaves inLines =
         
 
 -- | refineCharData converts '.' to '0'. aND OTHER STATES TO '1','2', or '3'
+-- unsure of meaning of '.' so makeing it missing '?' for now
 refineCharData :: [L.Text] -> [L.Text]
 refineCharData inStringList =
     if null inStringList then []
     else let firstWord = head inStringList
     in
-    if firstWord == (L.pack ".") then (L.pack "0") : (refineCharData $ tail inStringList)
+    if firstWord == (L.pack ".") then (L.pack "?") : (refineCharData $ tail inStringList)
+    -- if firstWord == (L.pack ".") then (L.pack "0") : (refineCharData $ tail inStringList)
     else 
         let alleleString = L.takeWhile (/= ':') firstWord
             allele0 = L.head alleleString
             allele1 = L.last alleleString
-            allele0' = if allele0 == ('.') then ('0')
+            allele0' = if allele0 == ('.') then ('?')
                        else allele0
-            allele1' = if allele1 == ('.') then ('0')
+            allele1' = if allele1 == ('.') then ('?')
                        else allele1 
         in
         if allele0' == allele1' then (L.pack [allele0']) : (refineCharData $ tail inStringList)
