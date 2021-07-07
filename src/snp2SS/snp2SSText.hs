@@ -74,9 +74,13 @@ refineCharData inStringList =
         let alleleString = L.takeWhile (/= ':') firstWord
             allele0 = L.head alleleString
             allele1 = L.last alleleString
+            allele0' = if allele0 == ('.') then ('0')
+                       else allele0
+            allele1' = if allele1 == ('.') then ('0')
+                       else allele1 
         in
-        if allele0 == allele1 then (L.pack [allele0]) : (refineCharData $ tail inStringList)
-        else (L.pack ("[" ++ [allele0] ++ [allele1] ++ "]")) : (refineCharData $ tail inStringList)
+        if allele0' == allele1' then (L.pack [allele0']) : (refineCharData $ tail inStringList)
+        else (L.pack ("[" ++ [allele0'] ++ [allele1'] ++ "]")) : (refineCharData $ tail inStringList)
 
 -- | getLineData takes an SNP line and extracts character info and state infor for terminals for that character
 getLineData :: L.Text -> ([L.Text],[L.Text])
@@ -161,7 +165,7 @@ splitLinesByChromosome inLineList lastChrom currentChromList=
         in
         if thisChrom == lastChrom then  splitLinesByChromosome (tail inLineList) thisChrom (firstLine : currentChromList)
         else
-            trace ("New Chromosome: " ++ show thisChrom) 
+            -- trace ("New Chromosome: " ++ show thisChrom) 
             (reverse currentChromList) : splitLinesByChromosome (tail inLineList) thisChrom []
 
 -- | writeString takes a string, stub, as suffix and an index as a tuple and writes the string to
@@ -211,7 +215,7 @@ main =
         --hPutStrLn stderr (show $ charCodings !! 0)
         
         let numCharactersList = fmap length charCodingsList
-        hPutStrLn stderr ("There are " ++ show numCharactersList ++ " characters")
+        -- hPutStrLn stderr ("There are " ++ show numCharactersList ++ " characters")
         
         
         let taxonCharCodingsList = fmap transpose charCodingsList
