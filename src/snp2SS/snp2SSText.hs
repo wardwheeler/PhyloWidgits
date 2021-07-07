@@ -138,6 +138,44 @@ getHennigString numChars leafNames charCodings =
         in
         firstPart ++ joinedNameCharacters ++ lastPart
 
+-- | getHennigStringTuple same as getHennigString but with args as tuple
+getHennigStringTuple :: (Int, [String], [L.Text]) -> String
+getHennigStringTuple (numChars, leafNames, charCodings) =
+    if null leafNames then error "Empty leaf names"
+    else if null charCodings then "Empty character codings"
+    else 
+        let joinedNameCharacters = joinLists leafNames charCodings
+            firstPart = ("xread\n'SNP data'\n" ++ (show numChars) ++ " " ++ (show $ length leafNames) ++ "\n")
+            lastPart = (";\ncc - 0." ++ (show (numChars - 1)) ++ ";\nproc /;\n")
+        in
+        firstPart ++ joinedNameCharacters ++ lastPart
+
+-- | splitLinesByChromosome takes list of data lines and splits into list where each chromosome (first field)
+--   is a separate list of lines
+splitLinesByChromosome :: [L.Text] -> L.Text -> [L.Text] -> [[L.Text]]
+splitLinesByChromosome inLineList lastChrom currentChromList=
+    if null inLineList then []
+    else 
+        let firstLine = head inLineList
+            thisChrom = head $ L.words firstLine
+        in
+        if thisChrom == lastChrom then  splitLinesByChromosome (tail inLineList) thisChrom (firstLine : currentChromList)
+        else
+            trace ("New Chromosome: " ++ show thisChrom) 
+            (reverse currentChromList) : splitLinesByChromosome (tail inLineList) thisChrom []
+
+-- | writeString takes a string, stub, as suffix and an index as a tuple and writes the string to
+-- the unique stub+index file name 
+writeString :: (String, String, String, Int) -> IO ()
+writeString (contentString, stub, suffix, index) =
+    let fileName = stub ++ ("_") ++ (show index) ++ "." ++ suffix
+    in
+    do
+        hPutStrLn stderr ("Writing " ++ fileName)
+        outFileHandle <- openFile fileName WriteMode
+        hPutStr outFileHandle contentString
+        hClose outFileHandle
+
 -- | 'main' Main Function 
 main :: IO ()
 main = 
@@ -155,10 +193,16 @@ main =
         -- let leafList = mapM L.unpack (getLeaves inLines)
         let (leafList, restLines) = getLeaves inLines
         hPutStrLn stderr ("There are " ++ (show $ length leafList) ++ " taxa in data set")
-        
-        -- mapM_ (hPutStr stderr) $ intersperse " " (fmap L.unpack leafList)
-        -- hPutStrLn stderr "\n"
-        let (_, charCodings) = unzip $ processFileData restLines
+
+        -- Split lines by chromosome to crearte multiple list of lines
+        -- this to save on memory footprint for transposing and creating output file(s) later.
+        let chromosomeLineSetList = splitLinesByChromosome restLines (L.pack "-1") [] 
+        hPutStrLn stderr ("There are " ++ (show $ length chromosomeLineSetList) ++ " chromosomes in data set.")
+        -- hPutStrLn stderr (show chromosomeLineSetList)
+
+        -- Process each chomosome set of lines as separate file
+
+        let charCodingsList = fmap snd $ fmap unzip $ fmap processFileData (tail chromosomeLineSetList)
 
         -- Output character info with char numbers in separate file
 
@@ -166,10 +210,11 @@ main =
         -- then reverse so outgroups is first --specific to the dat set this is writen for
         --hPutStrLn stderr (show $ charCodings !! 0)
         
-        let numCharacters = length charCodings
-        hPutStrLn stderr ("There are " ++ show numCharacters ++ " characters")
+        let numCharactersList = fmap length charCodingsList
+        hPutStrLn stderr ("There are " ++ show numCharactersList ++ " characters")
         
-        let taxonCharCodings = transpose charCodings
+        
+        let taxonCharCodingsList = fmap transpose charCodingsList
         --hPutStrLn stderr (show $ taxonCharCodings !! 0)
 
         -- Write charcater contents to temp file.
@@ -180,9 +225,16 @@ main =
         -- output final Hennig file
 
         
+        -- Can then reverse so outgroups is first --if the data set like that
+        let hennigInfoTuple = zip3 numCharactersList (replicate (length chromosomeLineSetList) (fmap L.unpack leafList)) (fmap (fmap L.concat) taxonCharCodingsList)
+        --let hennigString  = getHennigString numCharacters (fmap L.unpack leafList) (fmap L.concat taxonCharCodings)
+        -- hPutStr stdout hennigString
+
+        let hennigStringList = fmap getHennigStringTuple hennigInfoTuple
+        let printTupleList = zip4 hennigStringList (replicate (length chromosomeLineSetList) (head args)) (replicate (length chromosomeLineSetList) "ss") [1..(length chromosomeLineSetList)]
+        --mapM_ (hPutStr stdout) hennigStringList
+        mapM_ writeString printTupleList
         
-        let hennigString = getHennigString numCharacters (reverse $ fmap L.unpack leafList) (reverse $ fmap L.concat taxonCharCodings)
-        hPutStr stdout hennigString
         
         hPutStrLn stderr "All done"
 
