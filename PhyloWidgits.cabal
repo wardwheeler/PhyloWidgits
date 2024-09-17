@@ -1,0 +1,171 @@
+name:                PhyloWidgits
+version:             0.1.0.0
+synopsis:            Initial project template from stack
+description:         Please see README.md
+homepage:            https://github.com/githubuser/languages#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Ward Wheeler
+maintainer:          wheeler@amnh.org
+copyright:           2016 Ward Wheeler
+category:            Web
+build-type:          Simple
+-- extra-source-files:
+cabal-version:       >=1.10
+
+executable csv2Fasta
+  hs-source-dirs:      src
+  main-is:             csv2Fasta.hs
+  ghc-options:         -O2
+  build-depends:       base
+                     , MissingH
+                     , text
+                     , split
+                     , process
+                     , containers
+
+  other-modules:     ReadFiles
+
+executable csv2TCM
+  hs-source-dirs:      src
+  main-is:             csv2TCM.hs
+  ghc-options:         -O2
+  build-depends:       base
+                     , MissingH 
+                     , text
+                     , split
+                     , process
+                     , containers
+                     , parsec
+                     , vector
+
+  other-modules:     ReadFiles
+
+executable meanWords
+  hs-source-dirs:      src
+  main-is:             meanWords.hs
+  ghc-options:         -O2
+  build-depends:       base
+                     , multiset
+                     , split
+                     , text
+                     , process
+
+  other-modules:     ReadFiles
+
+  default-language:    Haskell2010
+
+executable ipaConvert
+  hs-source-dirs:      src
+  main-is:             ipaConvert.hs
+  ghc-options:         -O2
+  build-depends:       base
+                     , multiset
+                     , split
+                     , text
+                     , process
+
+  other-modules:     ReadFiles
+
+  default-language:    Haskell2010
+
+executable getElements
+  hs-source-dirs:      src
+  main-is:             getElements.hs
+  ghc-options:         -O2
+  build-depends:       base
+                     , process
+                     , split
+
+  other-modules:     
+
+  default-language:    Haskell2010
+
+executable ia2Fasta 
+  hs-source-dirs:      src
+  main-is:             ia2Fasta.hs
+  ghc-options:         -O2
+  build-depends:       base
+                     , process
+                     , split
+                     , text
+                     
+
+  other-modules:     
+
+  default-language:    Haskell2010
+
+executable pruneRandGraph
+  hs-source-dirs:      src
+  main-is:             pruneRandGraph.hs
+  ghc-options:         -O2
+  build-depends:       base
+                     , array
+                     , bv
+                     , bv-little
+                     , containers
+                     , deepseq   
+                     , directory 
+                     , fgl
+                     , graphviz
+                     , MissingH
+                     , MonadRandom
+                     , parallel
+                     , PHANE-evaluation
+                     , PHANE-PhyloLib
+                     , process
+                     , text
+                     , random
+                     , split
+                     , time
+                     , vector
+
+
+  other-modules:     Cyclic 
+                   , GeneralUtilities 
+                   , GraphFormatUtilities 
+                   , LocalGraph
+
+  Default-Extensions:
+    BangPatterns
+    DerivingStrategies
+    ImportQualifiedPost
+    LambdaCase
+    NoGeneralizedNewtypeDeriving
+    RoleAnnotations
+    UnicodeSyntax
+
+  default-language:    Haskell2010
+
+executable randomSequences 
+  hs-source-dirs:      src
+  main-is:             randomSequences.hs
+  ghc-options:         -O2
+  build-depends:       base
+                     , process
+                     , random
+                     , split
+                     , text
+                     , vector
+                     
+
+  other-modules:     
+
+  default-language:    Haskell2010
+
+executable shuffleSequences 
+  hs-source-dirs:      src
+  main-is:             shuffleSequences.hs
+  ghc-options:         -O2
+  build-depends:       base
+                     , process
+                     , random
+                     , split
+                     , text
+                     , vector
+                     
+
+  other-modules:     
+
+  default-language:    Haskell2010
+
