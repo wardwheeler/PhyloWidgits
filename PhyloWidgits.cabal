@@ -109,10 +109,7 @@ executable pruneRandGraph
                      , fgl
                      , graphviz
                      , MissingH
-                     , MonadRandom
                      , parallel
-                     , PHANE-evaluation
-                     , PHANE-PhyloLib
                      , process
                      , text
                      , random

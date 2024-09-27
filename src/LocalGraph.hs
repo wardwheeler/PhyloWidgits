@@ -6,8 +6,8 @@ This is for indirection so can change underlying graph library without polutting
 -}
 module LocalGraph where
 
-import Control.Monad.IO.Class (MonadIO (..))
-import Control.Monad.Random.Class
+--import Control.Monad.IO.Class (MonadIO (..))
+--import Control.Monad.Random.Class
 import Control.Parallel.Strategies
 import Cyclic qualified as C
 import Data.Graph.Inductive.Basic qualified as B
@@ -28,9 +28,9 @@ import Data.Text.Lazy qualified as T
 import Data.Vector qualified as V
 import GeneralUtilities
 import GraphFormatUtilities qualified as GFU
-import PHANE.Evaluation
-import PHANE.Evaluation.ErrorPhase (ErrorPhase (Computing))
-import PHANE.Evaluation.Verbosity (Verbosity (..))
+--import PHANE.Evaluation
+--import PHANE.Evaluation.ErrorPhase (ErrorPhase (Computing))
+--import PHANE.Evaluation.Verbosity (Verbosity (..))
 import System.IO
 
 
@@ -40,7 +40,7 @@ import System.IO
 {- | to avoid circular dependency with Types.hs
 Core monad transformer stack for evaluating computations within the application PhyG.
 -}
-type PhyG = Evaluation ()
+--type PhyG = Evaluation ()
 
 
 -- | Gr local graph definition using FGL
@@ -483,7 +483,7 @@ labParents inGraph inNode =
 
 {- | isPhylogeneticGraph checks various issues to see if
 there is wierdness in graph
--}
+
 isPhylogeneticGraph ∷ (Show a, Eq a, NFData a, Show b, Eq b) ⇒ Gr a b → PhyG Bool
 isPhylogeneticGraph inGraph =
     if isEmpty inGraph
@@ -517,6 +517,7 @@ isPhylogeneticGraph inGraph =
                                                                         if not consistent
                                                                             then pure False
                                                                             else pure True
+-}
 
 
 -- | removeParentsInChain checks the parents of each netowrk node are not anc/desc of each other
@@ -1529,7 +1530,7 @@ getCoevalConstraintEdges inGraph inNode =
                 (_, edgeAfterList) = nodesAndEdgesAfter inGraph [inNode]
             in  (edgeBeforeList, edgeAfterList)
 
-
+{-
 -- | getGraphCoevalConstraints takes a graph and returns coeval constraints based on network nodes
 getGraphCoevalConstraints ∷ (Eq a, Eq b, Show a, NFData b) ⇒ Gr a b → PhyG [([LEdge b], [LEdge b])]
 getGraphCoevalConstraints inGraph =
@@ -1571,7 +1572,7 @@ getGraphCoevalConstraintsNodes inGraph =
                                 -- let (edgeBeforeList, edgeAfterList) = unzip (PU.seqParMap PU.myStrategy   (getCoevalConstraintEdges inGraph) networkNodeList) --  `using`  PU.myParListChunkRDS)
                                 pure $ zip3 networkNodeList edgeBeforeList edgeAfterList
 
-
+-}
 {- | meetsAllCoevalConstraintsNodes checks constraint pair list and examines
 whether one edge is from before and one after--if so fails False
 else True if all pass
@@ -1646,7 +1647,7 @@ notMatchEdgeIndices unlabeledEdegList labelledEdge =
         then False
         else True
 
-
+{-
 -- | isGraphTimeConsistent retuns False if graph fails time consistency
 isGraphTimeConsistent ∷ (Show a, Eq a, Eq b, NFData a) ⇒ Gr a b → PhyG Bool
 isGraphTimeConsistent inGraph =
@@ -1668,6 +1669,7 @@ isGraphTimeConsistent inGraph =
 
                             pure $ null timeOffendingEdgeList
 
+-}
 
 {- | addBeforeAfterToPair adds before and after node list to pari of nodes for later use
 in time contraint edge removal
@@ -2257,7 +2259,7 @@ getToFlipEdges parentNodeIndex inEdgeList =
                     then firstEdge : getToFlipEdges parentNodeIndex (drop 1inEdgeList)
                     else getToFlipEdges parentNodeIndex (drop 1inEdgeList)
 
-
+{-
 {- | Random generates display trees up to input number by choosing
 to keep indegree nodes > 1 unifomaly at random
 -}
@@ -2301,8 +2303,7 @@ chooseOneDumpRest = \case
     [] → pure []
     x : [] → pure []
     x : xs → fmap NE.tail . shuffleList $ x :| xs
-
-
+-}
 -- | generateDisplayTrees nice wrapper around generateDisplayTrees' with clean interface
 generateDisplayTrees ∷ (Eq a) ⇒ Bool → Gr a b → [Gr a b]
 generateDisplayTrees contractEdges inGraph =
