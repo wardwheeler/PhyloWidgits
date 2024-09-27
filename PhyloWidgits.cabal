@@ -1,3 +1,9 @@
+-- To make static binaries on Linux at least
+-- need to hae\ve llvm-(version) tools installed to link properly
+-- enable-executable-static -fpic (no idea why but lower case seems to mater on 
+-- commandline)--sometimes have to run twice to get link correct
+
+
 name:                PhyloWidgits
 version:             0.1.0.0
 synopsis:            Initial project template from stack
