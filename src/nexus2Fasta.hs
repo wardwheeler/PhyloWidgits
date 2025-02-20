@@ -77,16 +77,56 @@ getGuts inString =
         middlePart = takeWhile (/= ";") notStartList'
     in middlePart
 
+-- | convertSeq takes a sequnece and replaces leading gaps with ?
+convertSeq :: String -> String
+convertSeq inString =
+    if null inString then []
+    else 
+        if (head inString) /= '-' then inString
+        else '?' : convertSeq (tail inString)
+
+-- | convertLeadingTrailing converts leading and trailing '-' to '?'
+convertLeadingTrailing :: String -> String
+convertLeadingTrailing inLine = 
+    if null inLine then []
+    else 
+        let seqName = head $ words inLine
+            seqVal = last $ words inLine
+            leadingConverted = convertSeq seqVal
+            trailingConverted =  convertSeq $ reverse leadingConverted
+            newSeq = reverse trailingConverted
+        in
+        seqName <> " " <> newSeq
+        
+
 
 -- | Main function for conversion
 main :: IO ()
 main = 
   do 
-     allFile <-  getContents
-     hPutStrLn stderr $ "There are " <> (show $ length $ lines allFile) <> " lines in the input nexus file" 
-     -- let allFileProcessed = subRN allFile
-     -- let rawGuts = filter (/= '\t') $ filter (/= '\'') allFileProcessed
-     let guts = getGuts allFile -- lines $ takeWhile (/= ';') rawGuts -- $ unlines $ drop 8 $ lines rawGuts
-     --mapM_ (hPutStrLn stderr) guts
-     hPutStrLn stderr $ "There are " <> (show $ length guts) <> " sequences to output"
-     printFasta guts
+     --get input command filename
+    args <- getArgs
+    if (length args /= 2) 
+      then error "Require (true/false) argument to convert leading trailing gaps to '?' arg and input nexus file name"
+      else hPutStrLn stderr "Inputs: "
+    mapM_ (hPutStrLn stderr) args
+    hPutStrLn stderr ""
+    
+    let lt2QuesMark = head args 
+
+    if lt2QuesMark `notElem` ["true", "false"] 
+        then errorWithoutStackTrace ("Arg must be 'true' or 'false' argument was: " <> lt2QuesMark)
+        else hPutStrLn stderr ("Convert leading trailing gaps to '?' " <> lt2QuesMark)
+
+    nexusFileHandle <- openFile (last args) ReadMode
+    
+    allFile <-  hGetContents nexusFileHandle
+    hPutStrLn stderr $ "There are " <> (show $ length $ lines allFile) <> " lines in the input nexus file" 
+    -- let allFileProcessed = subRN allFile
+    -- let rawGuts = filter (/= '\t') $ filter (/= '\'') allFileProcessed
+    let guts = getGuts allFile -- lines $ takeWhile (/= ';') rawGuts -- $ unlines $ drop 8 $ lines rawGuts
+    --mapM_ (hPutStrLn stderr) guts
+    hPutStrLn stderr $ "There are " <> (show $ length guts) <> " sequences to output"
+    let guts' = if lt2QuesMark == "false" then guts
+                else fmap convertLeadingTrailing guts
+    printFasta guts'
