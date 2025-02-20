@@ -21,6 +21,10 @@ ipaConvert
 meanWords
 	Calculates mean words of languages from fastc files (latex IPA representations) 
 
+nexus2Fasta
+	Converts `simple' nexus files to fasta
+	Does not process all of nexus possibilities `
+
 pruneRandGraph
 	Prunes graph edges and vertices with 'rand' data key (or other)
 
