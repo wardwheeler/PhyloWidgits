@@ -139,7 +139,7 @@ main =
 
         hPutStrLn stderr ("Parsing as " <> fileType)
 
-        let sequenceLines = filter (('>' /=) . head) $ lines soundContents
+        let sequenceLines = filter (('>' /=) . head) $ filter (not . null) $ lines soundContents
 
         let allElements = concat $ fmap (getSymbols fileType) sequenceLines
 

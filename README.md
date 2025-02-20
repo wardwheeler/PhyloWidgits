@@ -37,9 +37,16 @@ Compilation
 
 All are verified to compile with ghc-9.10.1 and cabal v 3.12.1
 
+To install tools:
+
+which ghcup || curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh
+which ghc   || ghcup install ghc   latest
+which cabal || ghcup install cabal latest
+cabal update
+
 For each binary compilation :
-	cabal update
-	cabal build binaryName --with-compiler ghc-9.10.1 
+	
+cabal build binaryName --with-compiler ghc-9.10.1 
 
 
 
