@@ -8,18 +8,18 @@ csv2Fasta
 csv2TCM 
 	Converts csv sound file to tcm for fastc language file
 
-meanWords
-	Calculates mean words of languages from fastc files (latex IPA representations) 
-
-ipaConvert
-	Inter-converts ipa alphabet symbols to be parsable by phyloAlgoInfo (https://github.com/wardwheeler/PhyloAlgInfo)
-
 getElements
 	Returns file of alphabet symbols from fasta/c file
 
 ia2Fasta
 	Converts Implied Alignment output from PhyG and creates single fasta file by concatenating
                sequences with same taxon name, adding (or not) '#' between fragments
+
+ipaConvert
+	Inter-converts ipa alphabet symbols to be parsable by phyloAlgoInfo (https://github.com/wardwheeler/PhyloAlgInfo)
+
+meanWords
+	Calculates mean words of languages from fastc files (latex IPA representations) 
 
 pruneRandGraph
 	Prunes graph edges and vertices with 'rand' data key (or other)
@@ -56,3 +56,5 @@ Wheeler, W. C. and P. M. Whiteley. 2015.  Historical Linguistics as a Sequence O
 Wheeler, W. C., and A. Washburn. 2019.  FASTC: A file format for multi-character sequence data.  Cladistics, 35:573-575. 
 
 Wheeler, W. C., A. Washburn, and L. M. Crowley.  2024. PhylogeneticGraph (PhyG): A new phylogenetic search and optimization program.  Cladistics, 40:97-105. https://github.com/AMNH/PhyG
+
+Wheeler, W. C.. The limits of phylogenetic analysis: Identifying analytical hallucinations.  Cladistics, in press.
