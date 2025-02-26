@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-
+{-# LANGUAGE ImportQualifiedPost #-}
 {- |
 Module specifying graph types and functionality.
 This is for indirection so can change underlying graph library without polutting the rest of the code.

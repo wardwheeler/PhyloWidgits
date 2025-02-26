@@ -51,7 +51,7 @@ import Data.Maybe
 import Data.Text.Lazy qualified as T
 import GeneralUtilities
 import GraphFormatUtilities qualified as GFU
-import LocalGraph as LG
+import LocalGraph qualified as LG
 import System.Directory
 import System.Info
 import Text.Read (readMaybe)

@@ -8,6 +8,10 @@ csv2Fasta
 csv2TCM 
 	Converts csv sound file to tcm for fastc language file
 
+genRandTree
+	Generates a "random" tree specifying leaf number and tree distributin (Uniform, Yule)
+	outputs to stdout (> outfile.tre)
+
 getElements
 	Returns file of alphabet symbols from fasta/c file
 
@@ -23,7 +27,8 @@ meanWords
 
 nexus2Fasta
 	Converts `simple' nexus files to fasta
-	Does not process all of nexus possibilities `
+	Does not process all of nexus possibilities
+	outputs to stdout (> outfile.tre) `
 
 pruneRandGraph
 	Prunes graph edges and vertices with 'rand' data key (or other)
@@ -39,7 +44,7 @@ shuffleSequences
 
 Compilation
 
-All are verified to compile with ghc-9.10.1 and cabal v 3.12.1
+All are verified to compile with ghc-9.12.1 and cabal v 3.12.1
 
 To install tools:
 
@@ -50,7 +55,7 @@ cabal update
 
 For each binary compilation :
 	
-cabal build binaryName --with-compiler ghc-9.10.1 
+cabal build binaryName --with-compiler ghc-9.12.1 
 
 
 
