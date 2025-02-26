@@ -89,7 +89,7 @@ genRandTreeFGL inGen numLeaves htuCounter leafList distribution inGraph =
           
           newNodeList = [(newNodeIndex, "HTU" <> (show newNodeIndex)), (addedTerminalIndex, firstTerminal)]
           
-          edgessToAdd = [(e, newNodeIndex, "Edge" <> (show newNodeIndex)), (newNodeIndex, v, "Edge" <> (show v)), (v, addedTerminalIndex, "Edge" <> (show addedTerminalIndex))]
+          edgessToAdd = [(e, newNodeIndex, "Edge" <> (show newNodeIndex)), (newNodeIndex, v, "Edge" <> (show v)), (newNodeIndex, addedTerminalIndex, "Edge" <> (show addedTerminalIndex))]
 
           newGraph = LG.insEdges edgessToAdd $ LG.insNodes newNodeList $ LG.delLEdge edgeToSplit inGraph
       in 
