@@ -47,18 +47,55 @@ import Data.List
 import Data.Maybe
 import Data.Text.Lazy qualified as T
 import Debug.Trace
+import GeneralUtilities
 import GraphFormatUtilities qualified as GFU
 import LocalGraph qualified as LG
+import System.Random
 import Text.Read
 
 -- | Node variety
 data DistributionType = Uniform | Yule 
     deriving stock (Show, Eq)
 
+
+-- | chooseRandomEdge selects man edge at random from list
+chooseRandomEdge :: StdGen -> [LG.LEdge String] -> (StdGen, LG.LEdge String)
+chooseRandomEdge inGen edgesAvailableToSplit =
+   if null edgesAvailableToSplit then error "Null edge list to split"
+   else 
+      let (index, newGen) = randomR  (0, (length edgesAvailableToSplit) - 1) inGen
+      in
+      (newGen, edgesAvailableToSplit !! index)
+
 -- | genRandTreeFGL generates a random gfl tree with leaf label list and distribution
-genRandTreeFGL :: Int -> Int -> [String] -> DistributionType -> LG.Gr String String -> LG.Gr String String
-genRandTreeFGL numLeaves htuCounter leafList distribution inGraph =
-   inGraph
+genRandTreeFGL :: StdGen -> Int -> Int -> [String] -> DistributionType -> LG.Gr String String -> (StdGen, LG.Gr String String)
+genRandTreeFGL inGen numLeaves htuCounter leafList distribution inGraph =
+   let inList = uncons leafList
+   in
+   if isNothing inList then (inGen, inGraph)
+   else 
+      let (firstTerminal, restList) = fromJust inList
+          edgeList = LG.labEdges inGraph
+          nonOutgroupEgdeList = filter ((/= 0) . snd3) edgeList
+
+          edgesAvailableToSplit = if distribution == Uniform then 
+                                       nonOutgroupEgdeList
+                                  else 
+                                       filter ((<  numLeaves) . snd3) nonOutgroupEgdeList
+
+          (newGen, edgeToSplit@(e,v,_)) = chooseRandomEdge inGen edgesAvailableToSplit
+          newNodeIndex = numLeaves + htuCounter
+          addedTerminalIndex = read (drop 1 firstTerminal) :: Int
+          
+          newNodeList = [(newNodeIndex, "HTU" <> (show newNodeIndex)), (addedTerminalIndex, firstTerminal)]
+          
+          edgessToAdd = [(e, newNodeIndex, "Edge" <> (show newNodeIndex)), (newNodeIndex, v, "Edge" <> (show v)), (v, addedTerminalIndex, "Edge" <> (show addedTerminalIndex))]
+
+          newGraph = LG.insEdges edgessToAdd $ LG.insNodes newNodeList $ LG.delLEdge edgeToSplit inGraph
+      in 
+      genRandTreeFGL newGen numLeaves (htuCounter + 1) restList distribution newGraph
+     
+
 
 -- | Main function for conversion
 main :: IO ()
@@ -72,8 +109,8 @@ main =
     mapM_ (hPutStrLn stderr) args
     hPutStrLn stderr ""
     
-    let numLeavesString = head args 
-    let distributionText = T.toLower $ T.pack $ last args
+    let (numLeavesString, otherArgs) = fromJust $ uncons args
+    let distributionText = T.toLower $ T.pack $ fst $ fromJust $ uncons otherArgs
 
     let numLeavesMaybe = (readMaybe numLeavesString) :: Maybe Int
 
@@ -86,12 +123,19 @@ main =
 
     hPutStrLn stderr $ "Creating random tree with " <> (show numLeaves) <> " leaves via a " <> (show distribution) <> " distribution"
 
+
+    -- create leaf labels for tree
     let leafLabelList = drop 3 $ fmap ('T' :) $ fmap show $ [0.. numLeaves - 1] 
 
+    -- create initial 3 taxon tree
     let firstThreeNodes = [(0, "T0"), (1, "T1"),(2, "T2"), (numLeaves, "HTU" <> (show numLeaves)), (numLeaves + 1, "HTU" <> (show $ numLeaves + 1))]
     let firstThreeEdges = [(numLeaves, 0, "Edge" <> (show 0)), (numLeaves, numLeaves + 1, "Edge" <> (show $ numLeaves + 1)), (numLeaves + 1, 1, "Edge" <> (show 1)), (numLeaves + 1, 2, "Edge" <> (show 2))]
     let firstThreeGraph = LG.mkGraph firstThreeNodes firstThreeEdges
-
-    let randTreeFGL = genRandTreeFGL numLeaves (2 :: Int) leafLabelList distribution firstThreeGraph
+   
+    -- random initialization
+    randomGen <- initStdGen
+    
+    -- generatge ranodm tree in fgl
+    let randTreeFGL = snd $ genRandTreeFGL randomGen numLeaves (2 :: Int) leafLabelList distribution firstThreeGraph
     
     hPutStrLn stdout $ LG.prettify randTreeFGL
