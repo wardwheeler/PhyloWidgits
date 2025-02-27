@@ -1776,7 +1776,7 @@ getEdgeSplitList inGraph =
 
 {- | splitGraphOnEdge takes a graph and an edge and returns a single graph but with two components
 the roots of each component are returned with two graphs, with broken edge contracted, and 'naked'
-node returned (this is teh original connection vertex on base graph connected to pruned graph).
+node returned (this is the original connection vertex on base graph connected to pruned graph).
 The naked node is used for rejoining the two components during rearrangement
 (SplitGraph, root of component that has original root, root of component that was cut off, naked node left over)
 this function does not check whether edge is a 'bridge'

@@ -45,6 +45,7 @@ import System.Process
 import System.Environment
 import Data.Char
 import Data.List
+import Data.List qualified as L
 import Data.Maybe
 import Data.Text.Lazy qualified as T
 import Debug.Trace
@@ -126,6 +127,11 @@ mutateGraphFGL inGen mutationCounter maxMutations outgroupEdge neighborhood inGr
           nonOutgroupEgdeList = filter (/= outgroupEdge) edgeList
 
           (newGen, edgeToDelete) = chooseRandomEdge inGen nonOutgroupEgdeList
+
+          (splitGraph, baseGraphRoot, prunedGraphRoot, originalConnectionRoot, newEdge, deletedEdgeList) = LG.splitGraphOnEdge' inGraph edgeToDelete
+
+          edgeListBaseGraph = LG.getEdgeListAfter (splitGraph, baseGraphRoot)
+          edgesToRejoin = edgeListBaseGraph L.\\ [outgroupEdge]
 
           newGraph = inGraph
       in
