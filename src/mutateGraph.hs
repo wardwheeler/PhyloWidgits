@@ -63,6 +63,10 @@ data OutputFormat = GraphViz | Newick
 data Neighborhood = NNI | SPR | TBR
    deriving stock (Show, Eq)
 
+-- | maxTries for relooping is random not a good choice-this limts so no unending loops
+maxTries :: Int
+maxTries = 1000
+
 
 -- | 'trim' trim removes leading and trailing white space
 trim :: String -> String
@@ -118,35 +122,51 @@ deleteLabel0 inWordList =
 --    4) if TBR then new edge between edges in both partitions (contracting and redirecting edges)
 --    5) recurse tiulle nu,nber of mutations accomplished
 
-mutateGraphFGL :: StdGen -> Int ->  Int -> LG.LEdge Double -> Neighborhood -> LG.Gr String Double -> (StdGen, LG.Gr String Double)
-mutateGraphFGL inGen mutationCounter maxMutations outgroupEdge neighborhood inGraph =
+mutateGraphFGL :: StdGen -> Int ->  Int -> Int -> Int -> Neighborhood -> LG.Gr String Double -> (StdGen, LG.Gr String Double)
+mutateGraphFGL inGen mutationCounter maxMutations rootIndex maxTriesLocal neighborhood inGraph =
    if mutationCounter >= maxMutations then (inGen, inGraph)
+   else if maxTriesLocal >= maxTries then errorWithoutStackTrace ("Maximum number of randomization tries to mutate graph exceeded: " <> (show (maxTriesLocal >= maxTries)))
    else if LG.isEmpty inGraph then error "Empty graph in mutateGraphFGL"
    else 
       let edgeList = LG.labEdges inGraph 
-          nonOutgroupEgdeList = filter (/= outgroupEdge) edgeList
+          -- nonOutgroupEgdeList = edgeList L.\\ rootEdges
+          -- this assumes root index is 0--should be.
+          nonOutgroupEgdeList = filter ((/=rootIndex) . fst3) edgeList 
 
           (newGen, edgeToDelete) = chooseRandomEdge inGen nonOutgroupEgdeList
 
           (splitGraph, baseGraphRoot, prunedGraphRoot, originalConnectionRoot, newEdge, deletedEdgeList) = LG.splitGraphOnEdge' inGraph edgeToDelete
 
           edgeListBaseGraph = LG.getEdgeListAfter (splitGraph, baseGraphRoot)
-          edgesToRejoin = edgeListBaseGraph L.\\ [outgroupEdge]
+          edgesToRejoin = if neighborhood == SPR then filter ((/=rootIndex) . fst3) edgeListBaseGraph
+                          else if neighborhood == NNI then take 2 $ LG.getEdgeListAfter (splitGraph, (snd3 newEdge))
+                          else error ("TBR neighborhood not yet implemented")
 
-          newGraph = inGraph
+      in
+      --this in case some pruning has nothting to rejoin--in NNI I believe--this could cause a loop
+      if null edgesToRejoin then mutateGraphFGL newGen mutationCounter maxMutations rootIndex (maxTriesLocal + 1) neighborhood inGraph 
+      else
+          let (newGen2, additionPointEdge@(e,v,_)) = chooseRandomEdge newGen edgesToRejoin
+
+              newGraph = if neighborhood `notElem` [NNI, SPR] then error ("TBR neighborhood not yet implemented")
+                        else
+                           let newEdgeList = [(e, originalConnectionRoot, 0.0),(originalConnectionRoot, v, 0.0)]
+                           in 
+                           LG.insEdges newEdgeList $ LG.delLEdge additionPointEdge splitGraph
+
       in
       -- recurse for next mutation
-      mutateGraphFGL newGen (mutationCounter + 1) maxMutations outgroupEdge neighborhood newGraph
+      mutateGraphFGL newGen2 (mutationCounter + 1) maxMutations rootIndex 0 neighborhood newGraph
 
 
 -- | chooseRandomEdge selects man edge at random from list
 chooseRandomEdge :: StdGen -> [LG.LEdge b] -> (StdGen, LG.LEdge b)
-chooseRandomEdge inGen edgesAvailableToSplit =
-   if null edgesAvailableToSplit then error "Null edge list to split"
+chooseRandomEdge inGen edgesAvailable =
+   if null edgesAvailable then error "Null edge list to choose"
    else 
-      let (index, newGen) = randomR  (0, (length edgesAvailableToSplit) - 1) inGen
+      let (index, newGen) = randomR  (0, (length edgesAvailable) - 1) inGen
       in
-      (newGen, edgesAvailableToSplit !! index)
+      (newGen, edgesAvailable !! index)
 
 -- | findEdge get labelled edges from graph and retue=rns LEdge with input indices
 findEdge :: Show b => LG.Gr a b -> Int -> Int -> LG.LEdge b
@@ -245,17 +265,21 @@ main =
     else hPutStrLn stderr "Input graph root has two children"
 
     let rootIndex = fst $ head rootsList
-
+    
+    {-
     let outgroupIndex = if LG.isLeaf inputGraph (snd3 $ head rootEdges) then (snd3 $ head rootEdges)
                         else if LG.isLeaf inputGraph (snd3 $ last rootEdges) then (snd3 $ last rootEdges)
                         else errorWithoutStackTrace ("Graph root must have only one child that is a leaf: " <> (show $ fmap snd3 rootEdges))
 
     let outgroupEdge = findEdge inputGraph rootIndex outgroupIndex
 
-    hPutStrLn stderr ("Outgroup edge is " <> (show outgroupEdge))
 
+    hPutStrLn stderr ("Outgroup edge is " <> (show outgroupEdge))
+   -}
+    hPutStrLn stderr ("Root index: " <> (show rootIndex))
+    
     -- generatge mutated tree in fgl
-    let mutantGraphFGL = snd $ mutateGraphFGL randomGen 0 numberMutations outgroupEdge mutationNeighborhood (GFU.textGraph2StringGraph inputGraph)
+    let mutantGraphFGL = snd $ mutateGraphFGL randomGen 0 numberMutations rootIndex 0 mutationNeighborhood (GFU.textGraph2StringGraph inputGraph)
 
     -- output trees in formats (newick, dot)
     -- dot format

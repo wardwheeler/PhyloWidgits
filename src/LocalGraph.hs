@@ -1950,10 +1950,10 @@ mergeConcurrentNodeLists inListList currentListList =
 
 
 {- | sortEdgeListByDistance sorts edges by distance (in edges) from edge pair of vertices
-cretes a list of edges into (but traveling away from) an initial eNOde and away from
+creates a list of edges into (but traveling away from) an initial eNode and away from
 an initial vNode adding new nodes to those lists as encountered by traversing edges.
-the eidea is theat the nodes from a directed edge (eNode, vNode)
-the list is creted at each round from the "in" and "out" edge lists
+the idea is that the nodes from a directed edge (eNode, vNode)
+the list is created at each round from the "in" and "out" edge lists
 so they are in order of 1 edge 2 edges etc.
 -}
 sortEdgeListByDistance ∷ Gr a b → [Node] → [Node] → [LEdge b]
