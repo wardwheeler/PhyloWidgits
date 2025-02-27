@@ -244,6 +244,8 @@ main =
 
     let outgroupEdge = findEdge inputGraph rootIndex outgroupIndex
 
+    hPutStrLn stderr ("Outgroup edge is " <> (show outgroupEdge))
+
 
 
     -- generatge mutated tree in fgl
