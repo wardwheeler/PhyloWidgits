@@ -140,7 +140,7 @@ mutateGraphFGL inGen mutationCounter maxMutations rootIndex maxTriesLocal neighb
           edgeListBaseGraph = LG.getEdgeListAfter (splitGraph, baseGraphRoot)
           edgesToRejoin = if neighborhood == SPR then filter ((/=rootIndex) . fst3) edgeListBaseGraph
                           else if neighborhood == NNI then take 2 $ LG.getEdgeListAfter (splitGraph, (snd3 newEdge))
-                          else error ("TBR neighborhood not yet implemented")
+                          else errorWithoutStackTrace ("TBR neighborhood not yet implemented")
 
       in
       --this in case some pruning has nothting to rejoin--in NNI I believe--this could cause a loop
@@ -148,7 +148,7 @@ mutateGraphFGL inGen mutationCounter maxMutations rootIndex maxTriesLocal neighb
       else
           let (newGen2, additionPointEdge@(e,v,_)) = chooseRandomEdge newGen edgesToRejoin
 
-              newGraph = if neighborhood `notElem` [NNI, SPR] then error ("TBR neighborhood not yet implemented")
+              newGraph = if neighborhood `notElem` [NNI, SPR] then errorWithoutStackTrace ("TBR neighborhood not yet implemented")
                         else
                            let newEdgeList = [(e, originalConnectionRoot, 0.0),(originalConnectionRoot, v, 0.0)]
                            in 
