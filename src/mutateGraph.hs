@@ -110,15 +110,6 @@ deleteLabel0 inWordList =
             in
             unwords newWordList
 
--- | chooseRandomEdge selects man edge at random from list
-chooseRandomEdge :: StdGen -> [LG.LEdge String] -> (StdGen, LG.LEdge String)
-chooseRandomEdge inGen edgesAvailableToSplit =
-   if null edgesAvailableToSplit then error "Null edge list to split"
-   else 
-      let (index, newGen) = randomR  (0, (length edgesAvailableToSplit) - 1) inGen
-      in
-      (newGen, edgesAvailableToSplit !! index)
-
 -- | mutateGraphFGL generates a random gfl tree with leaf label list and distribution
 --    1) edge (e,v) removed uniformly at random (other that one that leads to output)
 --    2) edges with e are contracted
@@ -134,11 +125,22 @@ mutateGraphFGL inGen mutationCounter maxMutations outgroupEdge neighborhood inGr
       let edgeList = LG.labEdges inGraph 
           nonOutgroupEgdeList = filter (/= outgroupEdge) edgeList
 
+          (newGen, edgeToDelete) = chooseRandomEdge inGen nonOutgroupEgdeList
+
           newGraph = inGraph
-          newGen = inGen
       in
       -- recurse for next mutation
       mutateGraphFGL newGen (mutationCounter + 1) maxMutations outgroupEdge neighborhood newGraph
+
+
+-- | chooseRandomEdge selects man edge at random from list
+chooseRandomEdge :: StdGen -> [LG.LEdge b] -> (StdGen, LG.LEdge b)
+chooseRandomEdge inGen edgesAvailableToSplit =
+   if null edgesAvailableToSplit then error "Null edge list to split"
+   else 
+      let (index, newGen) = randomR  (0, (length edgesAvailableToSplit) - 1) inGen
+      in
+      (newGen, edgesAvailableToSplit !! index)
 
 -- | findEdge get labelled edges from graph and retue=rns LEdge with input indices
 findEdge :: Show b => LG.Gr a b -> Int -> Int -> LG.LEdge b
@@ -245,8 +247,6 @@ main =
     let outgroupEdge = findEdge inputGraph rootIndex outgroupIndex
 
     hPutStrLn stderr ("Outgroup edge is " <> (show outgroupEdge))
-
-
 
     -- generatge mutated tree in fgl
     let mutantGraphFGL = snd $ mutateGraphFGL randomGen 0 numberMutations outgroupEdge mutationNeighborhood (GFU.textGraph2StringGraph inputGraph)
