@@ -120,16 +120,44 @@ chooseRandomEdge inGen edgesAvailableToSplit =
       (newGen, edgesAvailableToSplit !! index)
 
 -- | mutateGraphFGL generates a random gfl tree with leaf label list and distribution
-mutateGraphFGL :: StdGen -> Int ->  Int -> Neighborhood -> LG.Gr String Double -> (StdGen, LG.Gr String Double)
-mutateGraphFGL inGen mutationCounter maxMutations neighborhood inGraph =
+--    1) edge (e,v) removed uniformly at random (other that one that leads to output)
+--    2) edges with e are contracted
+--    3) if NNI or SPR new edge added to v from edge in graph partition that contained e
+--    4) if TBR then new edge between edges in both partitions (contracting and redirecting edges)
+--    5) recurse tiulle nu,nber of mutations accomplished
+
+mutateGraphFGL :: StdGen -> Int ->  Int -> LG.LEdge Double -> Neighborhood -> LG.Gr String Double -> (StdGen, LG.Gr String Double)
+mutateGraphFGL inGen mutationCounter maxMutations outgroupEdge neighborhood inGraph =
    if mutationCounter >= maxMutations then (inGen, inGraph)
    else if LG.isEmpty inGraph then error "Empty graph in mutateGraphFGL"
    else 
-      let newGraph = inGraph
+      let edgeList = LG.labEdges inGraph 
+          nonOutgroupEgdeList = filter (/= outgroupEdge) edgeList
+
+          newGraph = inGraph
           newGen = inGen
       in
       -- recurse for next mutation
-      mutateGraphFGL newGen (mutationCounter + 1) maxMutations neighborhood newGraph
+      mutateGraphFGL newGen (mutationCounter + 1) maxMutations outgroupEdge neighborhood newGraph
+
+-- | findEdge get labelled edges from graph and retue=rns LEdge with input indices
+findEdge :: Show b => LG.Gr a b -> Int -> Int -> LG.LEdge b
+findEdge inGraph e v =
+   if LG.isEmpty inGraph then error ("No edge in graph with indices " <> (show (e, v)))
+   else 
+      let edgeList = LG.labEdges inGraph
+      in
+      getEdge e v edgeList
+
+-- | getEdge checks first 2 elements to match and return triple
+getEdge :: Show b => Int -> Int -> [(Int, Int, b)] -> (Int, Int, b)
+getEdge e v edgeList =
+   if null edgeList then error ("Indices not found in edge list: " <> (show (e,v,edgeList)))
+   else 
+      let (inE, inV, _) = head edgeList
+      in
+      if (inE == e) && (inV == v) then  head edgeList
+      else getEdge e v (drop 1 edgeList)
 
 
 -- | Main function
@@ -138,17 +166,17 @@ main =
   do 
      --get input command filename, ouputs to stdout
     args <- getArgs
-    if (length args /= 3) 
+    if (length args /= 4) 
       then errorWithoutStackTrace "Require four arguments: graph file name (String), number mutations (Integer), mutation neighborhood (NNI/SPR/TBR), and output format (GraphViz/Newick)"
       else hPutStrLn stderr "Inputs: "
-    mapM_ (hPutStrLn stderr) args
+    mapM_ (hPutStrLn stderr) $ fmap ('\t' :) args
     hPutStrLn stderr ""
     
     let (infileName, otherArgs) = fromJust $ uncons args
 
     let numberMutationsMaybe = readMaybe (args !! 1) :: Maybe Int
 
-    let neighborhoodText = T.pack $ args !! 2
+    let neighborhoodText = T.toLower $ T.pack $ args !! 2
 
     let outputFormatText = T.toLower $ T.pack $ (args !! 3)
 
@@ -158,15 +186,16 @@ main =
     let mutationNeighborhood = if T.head neighborhoodText == 'n' then NNI
                                else if T.head neighborhoodText == 's' then SPR
                                else if T.head neighborhoodText == 't' then TBR 
-                               else errorWithoutStackTrace ("THird argument needs to be 'NNI', 'SPR', or 'TBR': " <> (args !! 2))
+                               else errorWithoutStackTrace ("Third argument needs to be 'NNI', 'SPR', or 'TBR': " <> (args !! 2))
 
     let outputFormat = if T.head outputFormatText == 'g' then GraphViz
                        else if T.head outputFormatText == 'n' then Newick
-                       else errorWithoutStackTrace ("THird argument needs to be 'Graphviz' or 'Newick': " <> (args !! 3))
+                       else errorWithoutStackTrace ("Fourth argument needs to be 'Graphviz' or 'Newick': " <> (args !! 3))
 
 
 
     hPutStrLn stderr $ "Mutating gaph with " <> (show numberMutations) <> " mutations in " <> (show mutationNeighborhood) <> " edit neighborhood"
+    hPutStrLn stderr "assumes graph has a single outgroup leaf, ie that one of the two children of the root vertex is a leaf"
 
 
     -- read input graph
@@ -174,8 +203,8 @@ main =
     graphContents' <- hGetContents' graphFileHandle
     let graphContents = trim graphContents'
 
-    if null graphContents then errorWithoutStackTrace "Empty graph input"
-    else hPutStrLn stderr "Read input graph"
+    if null graphContents then errorWithoutStackTrace "\tEmpty graph input"
+    else hPutStrLn stderr "Successfully read input graph"
 
     let firstChar = head graphContents
 
@@ -197,8 +226,28 @@ main =
     -- random initialization
     randomGen <- initStdGen
     
+    -- find outgroup edge
+    let rootsList = LG.getRoots inputGraph
+
+    if (length rootsList) /= 1 then errorWithoutStackTrace ("Graph must have a single root: " <> (show rootsList))
+    else hPutStrLn stderr "Input graph has a single root"
+
+    let rootEdges = LG.out inputGraph (fst $ head rootsList)
+    if (length rootEdges) /= 2 then errorWithoutStackTrace ("Graph root must have two childern: " <> (show rootEdges))
+    else hPutStrLn stderr "Input graph root has two children"
+
+    let rootIndex = fst $ head rootsList
+
+    let outgroupIndex = if LG.isLeaf inputGraph (snd3 $ head rootEdges) then (snd3 $ head rootEdges)
+                        else if LG.isLeaf inputGraph (snd3 $ last rootEdges) then (snd3 $ last rootEdges)
+                        else errorWithoutStackTrace ("Graph root must have only one child that is a leaf: " <> (show $ fmap snd3 rootEdges))
+
+    let outgroupEdge = findEdge inputGraph rootIndex outgroupIndex
+
+
+
     -- generatge mutated tree in fgl
-    let mutantGraphFGL = snd $ mutateGraphFGL randomGen 0 numberMutations mutationNeighborhood (GFU.textGraph2StringGraph inputGraph)
+    let mutantGraphFGL = snd $ mutateGraphFGL randomGen 0 numberMutations outgroupEdge mutationNeighborhood (GFU.textGraph2StringGraph inputGraph)
 
     -- output trees in formats (newick, dot)
     -- dot format
