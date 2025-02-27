@@ -57,6 +57,51 @@ import Text.Read
 data DistributionType = Uniform | Yule 
     deriving stock (Show, Eq)
 
+-- | output as Graphviz/Dot or newick
+data OutputFormat = GraphViz | Newick 
+    deriving stock (Show, Eq)
+
+-- changeDotPreamble takes an input string to search for and a new one to add in its place
+-- searches through dot file (can have multipl graphs) replacing teh search string each time.
+changeDotPreamble ∷ String → String → String → String
+changeDotPreamble findString newString inDotString =
+    if null inDotString
+        then []
+        else changePreamble' findString newString [] (lines inDotString)
+
+
+-- changeDotPreamble' internal process for changeDotPreamble
+changePreamble' ∷ String → String → [String] → [String] → String
+changePreamble' findString newString accumList inLineList =
+    if null inLineList
+        then unlines $ reverse accumList
+        else -- trace ("CP':" <> (head inLineList) <> " " <>  findString <> " " <> newString) (
+
+            let firstLine = head inLineList
+            in  if firstLine == findString
+                    then changePreamble' findString newString (newString : accumList) (tail inLineList)
+                    else changePreamble' findString newString (firstLine : accumList) (tail inLineList)
+
+-- | removeLabel00 removes the [label=0.0] field from edge specification in dot format
+removeLabel00 :: String -> String
+removeLabel00 inString = 
+    if null inString then []
+    else 
+        let inLines = fmap words $ lines inString
+            newLines = fmap deleteLabel0 inLines
+        in
+        unlines newLines
+
+-- | deleteLabel0 removes [label=0.0] from list of words
+deleteLabel0 :: [String] -> String
+deleteLabel0 inWordList =
+    if null inWordList then []
+    else 
+        if "[label=0.0];" `notElem` inWordList then unwords inWordList
+        else 
+            let newWordList = (filter (/=  "[label=0.0];") inWordList) <> [";"]
+            in
+            unwords newWordList
 
 -- | chooseRandomEdge selects man edge at random from list
 chooseRandomEdge :: StdGen -> [LG.LEdge String] -> (StdGen, LG.LEdge String)
@@ -103,14 +148,15 @@ main =
   do 
      --get input command filename, ouputs to stdout
     args <- getArgs
-    if (length args /= 2) 
-      then errorWithoutStackTrace "Require two arguments: number of leaves in tree (Integer) and tree distribution (Uniform/Yule)"
+    if (length args /= 3) 
+      then errorWithoutStackTrace "Require three arguments: number of leaves in tree (Integer), tree distribution (Uniform/Yule), and output format (GraphViz/Newick)"
       else hPutStrLn stderr "Inputs: "
     mapM_ (hPutStrLn stderr) args
     hPutStrLn stderr ""
     
     let (numLeavesString, otherArgs) = fromJust $ uncons args
     let distributionText = T.toLower $ T.pack $ fst $ fromJust $ uncons otherArgs
+    let outputFormatText = T.toLower $ T.pack $ (snd $ fromJust $ uncons otherArgs) !! 0
 
     let numLeavesMaybe = (readMaybe numLeavesString) :: Maybe Int
 
@@ -119,7 +165,13 @@ main =
 
     let distribution = if T.head distributionText == 'u' then Uniform
                        else if T.head distributionText == 'y' then Yule
-                       else errorWithoutStackTrace ("Second argument needs to be 'Uniform' or 'Yule': " <> last args)
+                       else errorWithoutStackTrace ("Second argument needs to be 'Uniform' or 'Yule': " <> (args !! 1))
+
+    let outputFormat = if T.head outputFormatText == 'g' then GraphViz
+                       else if T.head outputFormatText == 'n' then Newick
+                       else errorWithoutStackTrace ("THird argument needs to be 'Graphviz' or 'Newick': " <> last args)
+
+
 
     hPutStrLn stderr $ "Creating random tree with " <> (show numLeaves) <> " leaves via a " <> (show distribution) <> " distribution"
 
@@ -137,5 +189,16 @@ main =
     
     -- generatge ranodm tree in fgl
     let randTreeFGL = snd $ genRandTreeFGL randomGen numLeaves (2 :: Int) leafLabelList distribution firstThreeGraph
+
+    -- output trees in formats (newick, dot)
+    -- dot format
+    let outGraphStringDot = removeLabel00 $ GFU.fgl2DotString randTreeFGL
+    let outGraphStringDot' = changeDotPreamble "digraph {" "digraph G {\n\trankdir = LR;\tedge [colorscheme=spectral11];\tnode [shape = none];\n" outGraphStringDot
+
+    -- newick format
+    let graphTD = GFU.stringGraph2TextGraphDouble randTreeFGL
+    let outGraphStringNewick = T.unpack $ GFU.fgl2FEN False False graphTD
     
-    hPutStrLn stdout $ LG.prettify randTreeFGL
+
+    if outputFormat == GraphViz then hPutStrLn stdout outGraphStringDot'
+    else hPutStrLn stdout outGraphStringNewick

@@ -88,6 +88,7 @@ Example:
 -}
 module GraphFormatUtilities (
     forestEnhancedNewickStringList2FGLList,
+    fgl2FEN,
     fglList2ForestEnhancedNewickString,
     component2Newick,
     checkIfLeaf,
