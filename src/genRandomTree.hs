@@ -161,7 +161,7 @@ main =
     let numLeavesMaybe = (readMaybe numLeavesString) :: Maybe Int
 
     let numLeaves = if isJust numLeavesMaybe then fromJust numLeavesMaybe
-                    else errorWithoutStackTrace ("Firat argument needs to be an integer (e.g. 10): " <> numLeavesString)
+                    else errorWithoutStackTrace ("First argument needs to be an integer (e.g. 10): " <> numLeavesString)
 
     let distribution = if T.head distributionText == 'u' then Uniform
                        else if T.head distributionText == 'y' then Yule
@@ -169,7 +169,7 @@ main =
 
     let outputFormat = if T.head outputFormatText == 'g' then GraphViz
                        else if T.head outputFormatText == 'n' then Newick
-                       else errorWithoutStackTrace ("THird argument needs to be 'Graphviz' or 'Newick': " <> last args)
+                       else errorWithoutStackTrace ("Third argument needs to be 'Graphviz' or 'Newick': " <> last args)
 
 
 

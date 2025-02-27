@@ -25,6 +25,9 @@ ipaConvert
 meanWords
 	Calculates mean words of languages from fastc files (latex IPA representations) 
 
+mutateGraph
+	Takes a newick or Graphviz formatted graph and mutates within NNI, SPR, or TBR neighborhood.
+
 nexus2Fasta
 	Converts `simple' nexus files to fasta
 	Does not process all of nexus possibilities
