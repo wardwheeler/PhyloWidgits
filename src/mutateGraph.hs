@@ -114,53 +114,6 @@ deleteLabel0 inWordList =
             let newWordList = (filter (/=  "[label=0.0];") inWordList) <> [";"]
             in
             unwords newWordList
-
--- | mutateGraphFGL generates a random gfl tree with leaf label list and distribution
---    1) edge (e,v) removed uniformly at random (other that one that leads to output)
---    2) edges with e are contracted
---    3) if NNI or SPR new edge added to v from edge in graph partition that contained e
---    4) if TBR then new edge between edges in both partitions (contracting and redirecting edges)
---    5) recurse tiulle nu,nber of mutations accomplished
-
-mutateGraphFGL :: StdGen -> Int ->  Int -> Int -> LG.LEdge Double -> Int -> Neighborhood -> LG.Gr String Double -> (StdGen, LG.Gr String Double)
-mutateGraphFGL inGen mutationCounter maxMutations rootIndex outgroupEdge maxTriesLocal neighborhood inGraph =
-   if mutationCounter >= maxMutations then (inGen, inGraph)
-   else if maxTriesLocal >= maxTries then errorWithoutStackTrace ("Maximum number of randomization tries to mutate graph exceeded: " <> (show (maxTriesLocal >= maxTries)))
-   else if LG.isEmpty inGraph then error "Empty graph in mutateGraphFGL"
-   else 
-      let edgeList = LG.labEdges inGraph 
-          -- this uses root index is --should be 0 can't use edges as constrant since change with mutation
-          nonOutgroupEgdeList = filter ((/=rootIndex) . fst3) edgeList 
-
-          -- only delete edges that are not connceted to root
-          (newGen, edgeToDelete) = chooseRandomEdge inGen nonOutgroupEgdeList
-
-          (splitGraph, baseGraphRoot, prunedGraphRoot, originalConnectionRoot, newEdge, deletedEdgeList) = LG.splitGraphOnEdge' inGraph edgeToDelete
-
-          -- For SPR/TBR cann't add beck too outgroup edge, but others are OK.
-          edgeListBaseGraph = LG.getEdgeListAfter (splitGraph, baseGraphRoot)
-          edgesToRejoin = if neighborhood == NNI then take 2 $ LG.getEdgeListAfter (splitGraph, (snd3 newEdge))
-                          -- else if neighborhood == SPR then filter ((/=rootIndex) . fst3) edgeListBaseGraph
-                          else edgeListBaseGraph L.\\ [outgroupEdge]
-                          -- else errorWithoutStackTrace ("TBR neighborhood not yet implemented")
-
-      in
-      --this in case some pruning has nothting to rejoin--in NNI I believe--this could cause a loop
-      if null edgesToRejoin then mutateGraphFGL newGen mutationCounter maxMutations rootIndex outgroupEdge (maxTriesLocal + 1) neighborhood inGraph 
-      else
-          let (newGen2, additionPointEdge@(e,v,_)) = chooseRandomEdge newGen edgesToRejoin
-
-              newGraph = if neighborhood `notElem` [NNI, SPR] then errorWithoutStackTrace ("TBR neighborhood not yet implemented")
-                        else
-                           let newEdgeList = [(e, originalConnectionRoot, 0.0),(originalConnectionRoot, v, 0.0)]
-                           in 
-                           LG.insEdges newEdgeList $ LG.delLEdge additionPointEdge splitGraph
-
-      in
-      -- recurse for next mutation
-      mutateGraphFGL newGen2 (mutationCounter + 1) maxMutations rootIndex outgroupEdge 0 neighborhood newGraph
-
-
 -- | chooseRandomEdge selects man edge at random from list
 chooseRandomEdge :: StdGen -> [LG.LEdge b] -> (StdGen, LG.LEdge b)
 chooseRandomEdge inGen edgesAvailable =
@@ -189,37 +142,89 @@ getEdge e v edgeList =
       if (inE == e) && (inV == v) then  head edgeList
       else getEdge e v (drop 1 edgeList)
 
+-- | mutateGraphFGL generates a random gfl tree with leaf label list and distribution
+--    1) edge (e,v) removed uniformly at random (other that one that leads to output)
+--    2) edges with e are contracted
+--    3) if NNI or SPR new edge added to v from edge in graph partition that contained e
+--    4) if TBR then new edge between edges in both partitions (contracting and redirecting edges)
+--    5) recurse tiulle nu,nber of mutations accomplished
+
+mutateGraphFGL :: StdGen -> Int ->  Int -> Int -> LG.LEdge Double -> Int -> Neighborhood -> LG.Gr String Double -> (StdGen, LG.Gr String Double)
+mutateGraphFGL inGen mutationCounter maxMutations rootIndex outgroupEdge maxTriesLocal neighborhood inGraph =
+   if mutationCounter >= maxMutations then (inGen, inGraph)
+   else if maxTriesLocal >= maxTries then errorWithoutStackTrace ("Maximum number of randomization tries to mutate graph exceeded: " <> (show (maxTriesLocal >= maxTries)))
+   else if LG.isEmpty inGraph then error "Empty graph in mutateGraphFGL"
+   else 
+      let edgeList = LG.labEdges inGraph 
+          -- this uses root index is --should be 0 can't use edges as constrant since change with mutation
+          nonOutgroupEgdeList = filter ((/=rootIndex) . fst3) edgeList 
+
+          -- only delete edges that are not connceted to root
+          (newGen, edgeToDelete) = chooseRandomEdge inGen nonOutgroupEgdeList
+
+          (splitGraph, baseGraphRoot, prunedGraphRoot, originalConnectionRoot, newEdge, deletedEdgeList) = LG.splitGraphOnEdge' inGraph edgeToDelete
+
+          -- For SPR/TBR can't add back to outgroup edge or original split edge (newEdge) but others are OK.
+          edgeListBaseGraph = LG.getEdgeListAfter (splitGraph, baseGraphRoot)
+          edgesToRejoin = if neighborhood == NNI then take 2 $ LG.getEdgeListAfter (splitGraph, (snd3 newEdge))
+                          -- else if neighborhood == SPR then filter ((/=rootIndex) . fst3) edgeListBaseGraph
+                          else edgeListBaseGraph L.\\ [outgroupEdge, newEdge]
+                          -- else errorWithoutStackTrace ("TBR neighborhood not yet implemented")
+
+      in
+      --this in case some pruning has nothting to rejoin--in NNI I believe--this could cause a loop
+      if null edgesToRejoin then mutateGraphFGL newGen mutationCounter maxMutations rootIndex outgroupEdge (maxTriesLocal + 1) neighborhood inGraph 
+      else
+          let (newGen2, additionPointEdge@(e,v,_)) = chooseRandomEdge newGen edgesToRejoin
+
+              (newGen3, newGraph) = if neighborhood `elem` [NNI, SPR] then 
+                                       let newEdgeList = [(e, originalConnectionRoot, 0.0),(originalConnectionRoot, v, 0.0)]
+                                       in 
+                                       (newGen2, LG.insEdges newEdgeList $ LG.delLEdge additionPointEdge splitGraph)
+                                     
+                                    else -- TBR-- need additional randomized choice and reroot functions
+                                       -- get edge list of pruned comnponent and filter out original root edges of pruned component
+                                       let punedEdgeList = filter ((/=prunedGraphRoot) . fst3) $ LG.getEdgeListAfter (splitGraph, prunedGraphRoot)
+                                           (newGen3, edgeToReroot) = chooseRandomEdge newGen2 punedEdgeList
+                                           newTBRGraph = makeTBRNewGraph splitGraph prunedGraphRoot originalConnectionRoot (additionPointEdge, edgeToReroot)
+
+                                       in
+                                       -- first case for splits that have no rerooting options (basically SPR only)
+                                       if null punedEdgeList then
+                                          let newEdgeList = [(e, originalConnectionRoot, 0.0),(originalConnectionRoot, v, 0.0)]
+                                          in 
+                                          (newGen2, LG.insEdges newEdgeList $ LG.delLEdge additionPointEdge splitGraph)
+                                       else 
+                                          (newGen3, newTBRGraph)
+
+
+          in
+          -- recurse for next mutation
+          mutateGraphFGL newGen3 (mutationCounter + 1) maxMutations rootIndex outgroupEdge 0 neighborhood newGraph
+
 {-TBR stuff from PhyG -}
-{-
+
 {- | makeTBRNewGraph takes split graph, rerooted edge and readded edge making new complete graph for rediagnosis etc
 -}
-makeTBRNewGraph :: GlobalSettings -> DecoratedGraph -> LG.Node -> LG.Node -> (LG.LEdge EdgeInfo, LG.LEdge EdgeInfo) -> PhyG DecoratedGraph
-makeTBRNewGraph inGS splitGraph prunedGraphRootIndex originalConnectionOfPruned (targetEdge@(u, v, _), rerootEdge) =
+makeTBRNewGraph :: Eq a => LG.Gr a Double -> LG.Node -> LG.Node -> (LG.LEdge Double, LG.LEdge Double) -> LG.Gr a Double
+makeTBRNewGraph splitGraph prunedGraphRootIndex originalConnectionOfPruned (targetEdge@(u, v, _), rerootEdge) =
 
     -- pruned graph rerooted edges
     let (prunedEdgesToAdd, prunedEdgesToDelete) = getTBREdgeEditsDec splitGraph prunedGraphRootIndex rerootEdge
 
     -- create new edges readdition edges
         newEdgeList =
-                    [ (u, originalConnectionOfPruned, dummyEdge)
-                    , (originalConnectionOfPruned, v, dummyEdge)
-                    --, (originalConnectionOfPruned, prunedGraphRootIndex, dummyEdge)
+                    [ (u, originalConnectionOfPruned, 0.0)
+                    , (originalConnectionOfPruned, v, 0.0)
+                    --, (originalConnectionOfPruned, prunedGraphRootIndex, 0.0)
                     ]
         tbrNewGraph =
             LG.insEdges (newEdgeList <> prunedEdgesToAdd) $
                 LG.delEdges ((u, v) : prunedEdgesToDelete) splitGraph
-    in do
-        getCheckedGraphNewTBR <-
-            if graphType inGS == Tree then pure tbrNewGraph
-            else do
-                isPhyloGraph ← LG.isPhylogeneticGraph tbrNewGraph
-                if isPhyloGraph then pure tbrNewGraph
-                else pure LG.empty    
-    
-        pure getCheckedGraphNewTBR
+    in 
+    tbrNewGraph
 
-
-{- | getTBREdgeEditsDec takes and edge and returns the list of edit to pruned subgraph
+{- | getTBREdgeEditsDec takes an edge and returns the list of edit to pruned subgraph
 as a pair of edges to add and those to delete
 since reroot edge is directed (e,v), edges away from v will have correct
 orientation. Edges between 'e' and the root will have to be flipped
@@ -227,7 +232,7 @@ original root edges and reroort edge are deleted and new root and edge spanning 
 delete original connection edge and creates a new one--like SPR
 returns ([add], [delete])
 -}
-getTBREdgeEditsDec ∷ DecoratedGraph → LG.Node → LG.LEdge EdgeInfo → ([LG.LEdge EdgeInfo], [LG.Edge])
+getTBREdgeEditsDec ∷ Eq a => LG.Gr a Double → LG.Node → LG.LEdge Double → ([LG.LEdge Double], [LG.Edge])
 getTBREdgeEditsDec inGraph prunedGraphRootIndex rerootEdge =
     -- trace ("Getting TBR Edits for " <> (show rerootEdge)) (
     let -- originalRootEdgeNodes = LG.descendants inGraph prunedGraphRootIndex
@@ -247,9 +252,9 @@ getTBREdgeEditsDec inGraph prunedGraphRootIndex rerootEdge =
         -- add in closer vertex to root to make sure direction of edge is correct
         newEdgeOnOldRoot =
             if (snd3 $ head originalRootEdges) `elem` ((fst3 rerootEdge) : (fmap fst nodesInPath))
-                then (snd3 $ head originalRootEdges, snd3 $ last originalRootEdges, dummyEdge)
-                else (snd3 $ last originalRootEdges, snd3 $ head originalRootEdges, dummyEdge)
-        newRootEdges = [(prunedGraphRootIndex, fst3 rerootEdge, dummyEdge), (prunedGraphRootIndex, snd3 rerootEdge, dummyEdge)]
+                then (snd3 $ head originalRootEdges, snd3 $ last originalRootEdges, 0.0)
+                else (snd3 $ last originalRootEdges, snd3 $ head originalRootEdges, 0.0)
+        newRootEdges = [(prunedGraphRootIndex, fst3 rerootEdge, 0.0), (prunedGraphRootIndex, snd3 rerootEdge, 0.0)]
     in  -- assumes we are not checking original root
         -- rerooted
         -- delete orignal root edges and rerootEdge
@@ -258,7 +263,7 @@ getTBREdgeEditsDec inGraph prunedGraphRootIndex rerootEdge =
         -- flip edges from new root to old (delete and add list)
        
         (newEdgeOnOldRoot : (flippedEdges <> newRootEdges), LG.toEdge rerootEdge : (fmap LG.toEdge (edgesToFlip <> originalRootEdges)))
--}
+
 
 -- | Main function
 main :: IO ()
