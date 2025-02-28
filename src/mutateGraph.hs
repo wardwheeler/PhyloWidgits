@@ -122,29 +122,31 @@ deleteLabel0 inWordList =
 --    4) if TBR then new edge between edges in both partitions (contracting and redirecting edges)
 --    5) recurse tiulle nu,nber of mutations accomplished
 
-mutateGraphFGL :: StdGen -> Int ->  Int -> Int -> Int -> Neighborhood -> LG.Gr String Double -> (StdGen, LG.Gr String Double)
-mutateGraphFGL inGen mutationCounter maxMutations rootIndex maxTriesLocal neighborhood inGraph =
+mutateGraphFGL :: StdGen -> Int ->  Int -> Int -> LG.LEdge Double -> Int -> Neighborhood -> LG.Gr String Double -> (StdGen, LG.Gr String Double)
+mutateGraphFGL inGen mutationCounter maxMutations rootIndex outgroupEdge maxTriesLocal neighborhood inGraph =
    if mutationCounter >= maxMutations then (inGen, inGraph)
    else if maxTriesLocal >= maxTries then errorWithoutStackTrace ("Maximum number of randomization tries to mutate graph exceeded: " <> (show (maxTriesLocal >= maxTries)))
    else if LG.isEmpty inGraph then error "Empty graph in mutateGraphFGL"
    else 
       let edgeList = LG.labEdges inGraph 
-          -- nonOutgroupEgdeList = edgeList L.\\ rootEdges
-          -- this assumes root index is 0--should be.
+          -- this uses root index is --should be 0 can't use edges as constrant since change with mutation
           nonOutgroupEgdeList = filter ((/=rootIndex) . fst3) edgeList 
 
+          -- only delete edges that are not connceted to root
           (newGen, edgeToDelete) = chooseRandomEdge inGen nonOutgroupEgdeList
 
           (splitGraph, baseGraphRoot, prunedGraphRoot, originalConnectionRoot, newEdge, deletedEdgeList) = LG.splitGraphOnEdge' inGraph edgeToDelete
 
+          -- For SPR/TBR cann't add beck too outgroup edge, but others are OK.
           edgeListBaseGraph = LG.getEdgeListAfter (splitGraph, baseGraphRoot)
-          edgesToRejoin = if neighborhood == SPR then filter ((/=rootIndex) . fst3) edgeListBaseGraph
-                          else if neighborhood == NNI then take 2 $ LG.getEdgeListAfter (splitGraph, (snd3 newEdge))
-                          else errorWithoutStackTrace ("TBR neighborhood not yet implemented")
+          edgesToRejoin = if neighborhood == NNI then take 2 $ LG.getEdgeListAfter (splitGraph, (snd3 newEdge))
+                          -- else if neighborhood == SPR then filter ((/=rootIndex) . fst3) edgeListBaseGraph
+                          else edgeListBaseGraph L.\\ [outgroupEdge]
+                          -- else errorWithoutStackTrace ("TBR neighborhood not yet implemented")
 
       in
       --this in case some pruning has nothting to rejoin--in NNI I believe--this could cause a loop
-      if null edgesToRejoin then mutateGraphFGL newGen mutationCounter maxMutations rootIndex (maxTriesLocal + 1) neighborhood inGraph 
+      if null edgesToRejoin then mutateGraphFGL newGen mutationCounter maxMutations rootIndex outgroupEdge (maxTriesLocal + 1) neighborhood inGraph 
       else
           let (newGen2, additionPointEdge@(e,v,_)) = chooseRandomEdge newGen edgesToRejoin
 
@@ -156,7 +158,7 @@ mutateGraphFGL inGen mutationCounter maxMutations rootIndex maxTriesLocal neighb
 
       in
       -- recurse for next mutation
-      mutateGraphFGL newGen2 (mutationCounter + 1) maxMutations rootIndex 0 neighborhood newGraph
+      mutateGraphFGL newGen2 (mutationCounter + 1) maxMutations rootIndex outgroupEdge 0 neighborhood newGraph
 
 
 -- | chooseRandomEdge selects man edge at random from list
@@ -187,6 +189,76 @@ getEdge e v edgeList =
       if (inE == e) && (inV == v) then  head edgeList
       else getEdge e v (drop 1 edgeList)
 
+{-TBR stuff from PhyG -}
+{-
+{- | makeTBRNewGraph takes split graph, rerooted edge and readded edge making new complete graph for rediagnosis etc
+-}
+makeTBRNewGraph :: GlobalSettings -> DecoratedGraph -> LG.Node -> LG.Node -> (LG.LEdge EdgeInfo, LG.LEdge EdgeInfo) -> PhyG DecoratedGraph
+makeTBRNewGraph inGS splitGraph prunedGraphRootIndex originalConnectionOfPruned (targetEdge@(u, v, _), rerootEdge) =
+
+    -- pruned graph rerooted edges
+    let (prunedEdgesToAdd, prunedEdgesToDelete) = getTBREdgeEditsDec splitGraph prunedGraphRootIndex rerootEdge
+
+    -- create new edges readdition edges
+        newEdgeList =
+                    [ (u, originalConnectionOfPruned, dummyEdge)
+                    , (originalConnectionOfPruned, v, dummyEdge)
+                    --, (originalConnectionOfPruned, prunedGraphRootIndex, dummyEdge)
+                    ]
+        tbrNewGraph =
+            LG.insEdges (newEdgeList <> prunedEdgesToAdd) $
+                LG.delEdges ((u, v) : prunedEdgesToDelete) splitGraph
+    in do
+        getCheckedGraphNewTBR <-
+            if graphType inGS == Tree then pure tbrNewGraph
+            else do
+                isPhyloGraph ← LG.isPhylogeneticGraph tbrNewGraph
+                if isPhyloGraph then pure tbrNewGraph
+                else pure LG.empty    
+    
+        pure getCheckedGraphNewTBR
+
+
+{- | getTBREdgeEditsDec takes and edge and returns the list of edit to pruned subgraph
+as a pair of edges to add and those to delete
+since reroot edge is directed (e,v), edges away from v will have correct
+orientation. Edges between 'e' and the root will have to be flipped
+original root edges and reroort edge are deleted and new root and edge spanning orginal root created
+delete original connection edge and creates a new one--like SPR
+returns ([add], [delete])
+-}
+getTBREdgeEditsDec ∷ DecoratedGraph → LG.Node → LG.LEdge EdgeInfo → ([LG.LEdge EdgeInfo], [LG.Edge])
+getTBREdgeEditsDec inGraph prunedGraphRootIndex rerootEdge =
+    -- trace ("Getting TBR Edits for " <> (show rerootEdge)) (
+    let -- originalRootEdgeNodes = LG.descendants inGraph prunedGraphRootIndex
+        originalRootEdges = LG.out inGraph prunedGraphRootIndex
+
+        -- get path from new root edge fst vertex to orginal root and flip those edges
+        -- since (u,v) is u -> v u "closer" to root
+        closerToPrunedRootEdgeNode = (fst3 rerootEdge, fromJust $ LG.lab inGraph $ fst3 rerootEdge)
+        (nodesInPath, edgesinPath) =
+            LG.postOrderPathToNode inGraph closerToPrunedRootEdgeNode (prunedGraphRootIndex, fromJust $ LG.lab inGraph prunedGraphRootIndex)
+
+        -- don't want original root edges to be flipped since later deleted
+        edgesToFlip = edgesinPath L.\\ originalRootEdges
+        flippedEdges = fmap LG.flipLEdge edgesToFlip
+
+        -- new edges on new root position and spanning old root
+        -- add in closer vertex to root to make sure direction of edge is correct
+        newEdgeOnOldRoot =
+            if (snd3 $ head originalRootEdges) `elem` ((fst3 rerootEdge) : (fmap fst nodesInPath))
+                then (snd3 $ head originalRootEdges, snd3 $ last originalRootEdges, dummyEdge)
+                else (snd3 $ last originalRootEdges, snd3 $ head originalRootEdges, dummyEdge)
+        newRootEdges = [(prunedGraphRootIndex, fst3 rerootEdge, dummyEdge), (prunedGraphRootIndex, snd3 rerootEdge, dummyEdge)]
+    in  -- assumes we are not checking original root
+        -- rerooted
+        -- delete orignal root edges and rerootEdge
+        -- add new root edges
+        -- and new edge on old root--but need orientation
+        -- flip edges from new root to old (delete and add list)
+       
+        (newEdgeOnOldRoot : (flippedEdges <> newRootEdges), LG.toEdge rerootEdge : (fmap LG.toEdge (edgesToFlip <> originalRootEdges)))
+-}
 
 -- | Main function
 main :: IO ()
@@ -258,15 +330,15 @@ main =
     let rootsList = LG.getRoots inputGraph
 
     if (length rootsList) /= 1 then errorWithoutStackTrace ("Graph must have a single root: " <> (show rootsList))
-    else hPutStrLn stderr "Input graph has a single root"
+    else hPutStr stderr "" -- Input graph has a single root"
 
     let rootEdges = LG.out inputGraph (fst $ head rootsList)
     if (length rootEdges) /= 2 then errorWithoutStackTrace ("Graph root must have two childern: " <> (show rootEdges))
-    else hPutStrLn stderr "Input graph root has two children"
+    else hPutStr stderr "" -- Input graph root has two children"
 
     let rootIndex = fst $ head rootsList
     
-    {-
+    -- get outgroup edge so no rejoining og graphs on thet edge to mainting root position
     let outgroupIndex = if LG.isLeaf inputGraph (snd3 $ head rootEdges) then (snd3 $ head rootEdges)
                         else if LG.isLeaf inputGraph (snd3 $ last rootEdges) then (snd3 $ last rootEdges)
                         else errorWithoutStackTrace ("Graph root must have only one child that is a leaf: " <> (show $ fmap snd3 rootEdges))
@@ -274,12 +346,13 @@ main =
     let outgroupEdge = findEdge inputGraph rootIndex outgroupIndex
 
 
-    hPutStrLn stderr ("Outgroup edge is " <> (show outgroupEdge))
-   -}
-    hPutStrLn stderr ("Root index: " <> (show rootIndex))
+    --hPutStrLn stderr ("Outgroup edge is " <> (show outgroupEdge))
+   
+    --hPutStrLn stderr ("Root index: " <> (show rootIndex))
+    
     
     -- generatge mutated tree in fgl
-    let mutantGraphFGL = snd $ mutateGraphFGL randomGen 0 numberMutations rootIndex 0 mutationNeighborhood (GFU.textGraph2StringGraph inputGraph)
+    let mutantGraphFGL = snd $ mutateGraphFGL randomGen 0 numberMutations rootIndex outgroupEdge 0 mutationNeighborhood (GFU.textGraph2StringGraph inputGraph)
 
     -- output trees in formats (newick, dot)
     -- dot format
