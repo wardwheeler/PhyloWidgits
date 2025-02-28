@@ -196,8 +196,6 @@ mutateGraphFGL inGen mutationCounter maxMutations rootIndex outgroupEdge maxTrie
                                           (newGen2, LG.insEdges newEdgeList $ LG.delLEdge additionPointEdge splitGraph)
                                        else 
                                           (newGen3, newTBRGraph)
-
-
           in
           -- recurse for next mutation
           mutateGraphFGL newGen3 (mutationCounter + 1) maxMutations rootIndex outgroupEdge 0 neighborhood newGraph
