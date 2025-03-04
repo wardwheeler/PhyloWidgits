@@ -8,7 +8,7 @@ csv2Fasta
 csv2TCM 
 	Converts csv sound file to tcm for fastc language file
 
-genRandTree
+genRandomTree
 	Generates a "random" tree specifying leaf number and tree distributin (Uniform, Yule)
 	outputs to stdout (> outfile.tre)
 
