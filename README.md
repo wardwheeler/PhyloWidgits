@@ -46,6 +46,7 @@ shuffleSequences
 graph2Characters
 	Creates group inclusion character dats set (1 charcater per subgraph) in Hennig86/TNT format from an input graph
 	in Newick or Graphviz/Dot format.
+	outputs to stdout (> outfile.ss) `
 
 Compilation
 
@@ -60,7 +61,7 @@ cabal update
 
 For each binary compilation :
 	
-cabal build binaryName --with-compiler ghc-9.12.1 
+cabal build binaryName --with-compiler ghc-9.12.2
 
 
 

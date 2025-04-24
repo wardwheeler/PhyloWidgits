@@ -12,6 +12,7 @@ Description : Topological sorting involves removing nodes from the graph into a 
 
   Source : https://gist.github.com/msanatan/7933189#file-cyclic-hs
 -}
+
 module Cyclic (
     leafNode,
     hasLeaf,
@@ -26,7 +27,7 @@ import Data.Graph.Inductive
  This method determines whether a nodes is a leaf. It receives a graph and a
  node and returns a boolean with True indicating it's a leaf node
 -}
-leafNode ∷ (DynGraph g) ⇒ g a b → Node → Bool
+leafNode :: (DynGraph g) => g a b -> Node -> Bool
 leafNode = (null .) . suc
 
 
@@ -35,10 +36,10 @@ leafNode = (null .) . suc
  testing the leaf_node condition on every node of the graph It receives a
  graph and returns a boolean with True indicating there is a leaf node
 -}
-hasLeaf ∷ (DynGraph g) ⇒ g a b → Bool
+hasLeaf :: (DynGraph g) => g a b -> Bool
 hasLeaf gr = checkNodes . nodes $ gr
     where
-        checkNodes ∷ [Node] → Bool
+        checkNodes :: [Node] -> Bool
         checkNodes [] = False
         checkNodes (x : xs)
             | leafNode gr x = True
@@ -49,12 +50,12 @@ hasLeaf gr = checkNodes . nodes $ gr
  This method deletes a leaf node from a graph. The edges connecting to the
  leaf node are deleted as well.
 -}
-delLeaf ∷ (DynGraph g) ⇒ g a b → g a b
-delLeaf gr = case [x | x ← nodes gr, leafNode gr x] of
-    [] → gr
-    leaf : _ →
+delLeaf :: (DynGraph g) => g a b -> g a b
+delLeaf gr = case [x | x <- nodes gr, leafNode gr x] of
+    [] -> gr
+    leaf : _ ->
         let gr' = delEdges newEdges gr
-            newEdges = [(x, y) | (x, y, _) ← newLedges]
+            newEdges = [(x, y) | (x, y, _) <- newLedges]
             newLedges = inn gr leaf
         in  delNode leaf gr'
 
@@ -65,7 +66,7 @@ delLeaf gr = case [x | x ← nodes gr, leafNode gr x] of
  if it has no leaf nodes then cyclic. If it does have leaf nodes, remove it
  and check again
 -}
-cyclic ∷ (DynGraph g) ⇒ g a b → Bool
+cyclic :: (DynGraph g) => g a b -> Bool
 cyclic gr
     | isEmpty gr = False
     | not $ hasLeaf gr = True
