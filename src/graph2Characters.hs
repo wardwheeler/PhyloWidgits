@@ -103,6 +103,26 @@ deleteLabel0 inWordList =
             in
             unwords newWordList
 
+-- | makeColumnCharacters tkaes a list of leafNodes and creates a list of Strings of "1" if
+--    leaf in list and "0" if not.
+makeColumnCharacters :: [LG.LNode T.Text] -> [LG.LNode T.Text] -> String
+makeColumnCharacters leafList leafSubGraphList =
+    let inLeafListPair = uncons leafList
+    in
+    if null leafSubGraphList then error "No subgraph list"
+    else if isNothing inLeafListPair then []
+    else 
+        let (firstLeaf, restLeaves) = fromJust inLeafListPair
+        in
+        if firstLeaf `elem` leafSubGraphList then
+            "1" <> (makeColumnCharacters restLeaves leafSubGraphList)
+        else 
+            "0" <> (makeColumnCharacters restLeaves leafSubGraphList)
+
+-- | joinNameToMatrix joins leaf names to string of characters
+joinNameToMatrix :: (String, String) -> String
+joinNameToMatrix (fName, fchars)  =
+    fName <> "\t" <> (drop 1 fchars)
 
 -- | Main function
 main :: IO ()
@@ -146,6 +166,7 @@ main =
     
     -- find graph vertices that are not leaves
     let htuList = filter (not . LG.isLeafLab inputGraph) $ LG.labNodes inputGraph
+    let leafList = filter (LG.isLeafLab inputGraph) $ LG.labNodes inputGraph
 
     -- get descendent lists for each node
     let subGraphNodePairL = fmap (LG.nodesAndEdgesAfter inputGraph) $ fmap (:[]) htuList
@@ -157,11 +178,16 @@ main =
     let subGraphLeafLL = fmap (filter (LG.isLeafLab inputGraph)) subGraphNodeLL
 
     -- generate character "columns" for each htu vertex
+    let columnStringLL = fmap (makeColumnCharacters leafList) subGraphLeafLL
 
+    -- create sting of matrix
+    let stringMatrix = fmap (<> "\n") $ transpose columnStringLL
 
-    -- crearte sting of matrix
+    let fullMatrix = fmap joinNameToMatrix $ zip (fmap T.unpack $ fmap snd leafList) stringMatrix
 
     --- output matrix file string
-    let outDataString = "bleh2"
+    let firstString = "xread\n'Data recoded from graph " <> infileName <> " by graph2Characters'\n"
+    let secondString = (show $ (length subGraphNodeLL) - 1) <> " " <> (show $length leafList) <> "\n"
+    let endString = ";\ncc -.;\nproc /;\n"
     
-    hPutStrLn stdout outDataString
+    hPutStrLn stdout $ firstString <> secondString <> (concat fullMatrix) <> endString
