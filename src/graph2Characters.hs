@@ -156,9 +156,12 @@ main =
     -- remove non-leaves form each list of nodes 
     let subGraphLeafLL = fmap (filter (LG.isLeafLab inputGraph)) subGraphNodeLL
 
-    -- for each root 
+    -- generate character "columns" for each htu vertex
 
 
+    -- crearte sting of matrix
+
+    --- output matrix file string
     let outDataString = "bleh2"
     
     hPutStrLn stdout outDataString
