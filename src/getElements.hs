@@ -1,7 +1,7 @@
 {- |
 Module      :  getElements
 Description :  gets alphabet symbols from fasta/c file
-                outputs filoes with alphabet, NEYman and GTR stub models
+                outputs files with alphabet, Neyman and GTR stub models
 Copyright   :  (c) 2024 Ward C. Wheeler, Division of Invertebrate Zoology, AMNH. All rights reserved.
 License     :  
 
