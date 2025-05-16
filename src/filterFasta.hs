@@ -1,7 +1,7 @@
 {- |
-Module      :  removeTaaxFromFasta.hs  
-Description :  Progam to remove taxa from fasta/c files
-Copyright   :  (c) 2020 Ward C. Wheeler, Division of Invertebrate Zoology, AMNH. All rights reserved.
+Module      :  filterTaaxFromFasta.hs  
+Description :  Progam to filter taxa from fasta/c files
+Copyright   :  (c) 2025 Ward C. Wheeler, Division of Invertebrate Zoology, AMNH. All rights reserved.
 License     :  
 
 Redistribution and use in source and binary forms, with or without
@@ -57,17 +57,24 @@ rawData2Fast inDataList =
     ('>':(firstName ++ "\n")) ++ seqData ++ (rawData2Fast $ tail inDataList)
 
 
--- | filterNames removes taxa in name list from fasta/c file
-filterNames :: [String] -> [(String, [String])] -> [(String, [String])]
-filterNames deleteList inData =
-  if null deleteList then inData
+-- | filterNames filters taxa in name list from fasta/c file
+filterNames :: [String] -> String -> [(String, [String])] -> [(String, [String])]
+filterNames filterList operation inData =
+  if null filterList then inData
   else
     if null inData then []
     else 
       let (firstName, firstData) = head inData
       in
-      if firstName `elem` deleteList then trace ("Deleteing " ++ firstName) filterNames deleteList (tail inData)
-      else (firstName, firstData) : filterNames deleteList (tail inData)
+
+      if firstName `elem` filterList then 
+          if operation == "include"
+            then (firstName, firstData) : filterNames filterList operation (tail inData)
+          else filterNames filterList operation (tail inData)
+      else 
+        if operation == "include" then
+          filterNames filterList operation (tail inData)
+        else (firstName, firstData) : filterNames filterList operation (tail inData)
 
 
 -- | main driver
@@ -75,29 +82,34 @@ main :: IO ()
 main = 
   do 
       args <- getArgs
-      if (length args /= 2) 
-        then errorWithoutStackTrace "Requires two arguments: input fasta file and delete taxa file"
+      if (length args /= 3) 
+        then errorWithoutStackTrace "Requires three arguments: input fasta file, a file of taxon names, and 'include' or 'exclude' for filter operation."
         else hPutStrLn stderr "Inputs: "
       mapM_ (hPutStrLn stderr) $ fmap ('\t' :) args
       hPutStrLn stderr ""
       
       fastaFileHandle <- openFile (args !! 0) ReadMode
       fastaFile <-  hGetContents fastaFileHandle
-      removeFileHandle <- openFile (args !! 1) ReadMode
-      removeFile <- hGetContents removeFileHandle
-      let removeList = words removeFile
+      filterFileHandle <- openFile (args !! 1) ReadMode
+      filterFile <- hGetContents filterFileHandle
+      let filterList = words filterFile
 
-      hPutStr stderr "Deleting: "
-      mapM_ (hPutStr stderr) $ fmap (++ " ") removeList
+      hPutStr stderr $ "Filtering with " <> (args !! 2)
+      mapM_ (hPutStr stderr) $ fmap (++ " ") filterList
       hPutStr stderr "\n"
+
+      let operation = if head (args !! 2) `elem` ['i','I'] then "include"
+                      else if head (args !! 2) `elem` ['e','E'] then "exclude"
+                      else error $ "Third arument must be 'include' or 'exclude': " <>  (args !! 2) 
        
       let (leafDataList, _) = processFastaInput fastaFile
 
-      let newleafData = filterNames removeList leafDataList
+      let newleafData = filterNames filterList operation leafDataList
 
       let reformatedData = rawData2Fast newleafData
 
       hPutStr stdout reformatedData
 
       hPutStrLn stderr "Done"
+      
        
