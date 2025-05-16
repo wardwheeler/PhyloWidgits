@@ -46,13 +46,19 @@ import Data.Maybe
 import Data.Char
 import ReadFiles
 
+-- | 'trim' trim removes leading and trailing white space
+trim :: String -> String
+trim = f . f
+    where f = reverse . dropWhile isSpace
+
+
 -- | rawData2Fast converts [(String, [String])] to fast format
 rawData2Fast :: [(String, [String])] -> String
 rawData2Fast inDataList =
   if null inDataList then []
   else 
     let (firstName, firstData) = head inDataList
-        seqData = (concat $ fmap (++ " ") firstData) ++ "\n"
+        seqData = trim $ (concat $ fmap (++ " ") firstData) ++ "\n"
     in
     ('>':(firstName ++ "\n")) ++ seqData ++ (rawData2Fast $ tail inDataList)
 
@@ -64,7 +70,9 @@ filterNames filterList operation inData =
   else
     if null inData then []
     else 
-      let (firstName, firstData) = head inData
+      let (firstName', firstData') = head inData
+          firstName = trim firstName'
+          firstData = fmap trim firstData'
       in
 
       if firstName `elem` filterList then 
@@ -92,7 +100,7 @@ main =
       fastaFile <-  hGetContents fastaFileHandle
       filterFileHandle <- openFile (args !! 1) ReadMode
       filterFile <- hGetContents filterFileHandle
-      let filterList = words filterFile
+      let filterList = fmap trim $ words filterFile
 
       hPutStr stderr $ "Filtering with " <> (args !! 2)
       mapM_ (hPutStr stderr) $ fmap (++ " ") filterList
