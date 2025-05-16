@@ -8,6 +8,9 @@ csv2Fasta
 csv2TCM 
 	Converts csv sound file to tcm for fastc language file
 
+filterFasta
+	deletes or includes terminals frotm fasta/c file
+
 genRandomTree
 	Generates a "random" tree specifying leaf number and tree distributin (Uniform, Yule)
 	outputs to stdout (> outfile.tre)
@@ -72,4 +75,4 @@ Wheeler, W. C., and A. Washburn. 2019.  FASTC: A file format for multi-character
 
 Wheeler, W. C., A. Washburn, and L. M. Crowley.  2024. PhylogeneticGraph (PhyG): A new phylogenetic search and optimization program.  Cladistics, 40:97-105. https://github.com/AMNH/PhyG
 
-Wheeler, W. C.. The limits of phylogenetic analysis: Identifying analytical hallucinations.  Cladistics, in press.
+Wheeler, W. C.. The limits of phylogenetic analysis: Identifying analytical hallucinations.  2025. Cladistics 41.

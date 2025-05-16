@@ -131,7 +131,7 @@ main =
      --get input command filename, ouputs to stdout
     args <- getArgs
     if (length args /= 1) 
-      then errorWithoutStackTrace "Requires a single arguments: graph file name (String)"
+      then errorWithoutStackTrace "Requires a single argument: graph file name (String)"
       else hPutStrLn stderr "Inputs: "
     mapM_ (hPutStrLn stderr) $ fmap ('\t' :) args
     hPutStrLn stderr ""
