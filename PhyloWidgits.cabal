@@ -267,6 +267,7 @@ executable pruneRandGraph
                    , GeneralUtilities 
                    , GraphFormatUtilities 
                    , LocalGraph
+                   , ParallelUtilities
 
   Default-Extensions:
     BangPatterns

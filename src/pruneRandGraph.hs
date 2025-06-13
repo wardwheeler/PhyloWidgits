@@ -128,7 +128,7 @@ printGraphVizDot graphDotString dotFile =
 
 -- | getSplitLeaves takes a graph and and an edge an returns the leaves on each side of the edge
 -- directed u -> v
-getSplitLeaves :: (Eq a, Eq b, Show a, Show b) => LG.Gr a b -> [LNode a] -> LEdge b -> ([LNode a], [LNode a])
+getSplitLeaves :: (Eq a, Eq b, Show a, Show b) => LG.Gr a b -> [LG.LNode a] -> LG.LEdge b -> ([LG.LNode a], [LG.LNode a])
 getSplitLeaves inGraph nodeList inEdge@(u,v,_)=
     if LG.isEmpty inGraph then error "Empty graph in getSplitLeaves"
     else 
@@ -143,7 +143,7 @@ getSplitLeaves inGraph nodeList inEdge@(u,v,_)=
 
 -- | oneOrOther takes a keyWord (as Text) asn sees if that key word is in
 -- one or other leaf leabels but not neither or both
-oneOrOther :: T.Text -> ([LNode T.Text],[LNode T.Text]) -> Bool
+oneOrOther :: T.Text -> ([LG.LNode T.Text],[LG.LNode T.Text]) -> Bool
 oneOrOther keyWord nodeListPair@(uList, vList) = 
     if null uList && (not . null) vList then trace ("empty u") $ False
     else if null vList && (not . null) uList then trace ("empty v") $ False
@@ -202,7 +202,7 @@ removeKeyEdges keyWord inGraph =
             -- get isolated nodes
             isolatedNodeList = (LG.getIsolatedNodes secondEdgePrunedGraph) \\ nonKeyNodeList
 
-            contractedPrunedGraph = contractIn1Out1Edges $ LG.delNodes (fmap fst isolatedNodeList) secondEdgePrunedGraph
+            contractedPrunedGraph = LG.contractIn1Out1Edges $ LG.delNodes (fmap fst isolatedNodeList) secondEdgePrunedGraph
 
             numberComponents = filter (LG.isRoot contractedPrunedGraph) (LG.nodes contractedPrunedGraph)
 
