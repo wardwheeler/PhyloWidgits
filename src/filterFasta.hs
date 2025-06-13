@@ -58,7 +58,8 @@ rawData2Fast inDataList =
   if null inDataList then []
   else 
     let (firstName, firstData) = head inDataList
-        seqData = trim $ (concat $ fmap (++ " ") firstData) ++ "\n"
+        seqData' = trim $ (concat $ fmap (++ " ") firstData) 
+        seqData = seqData' <>  "\n"
     in
     ('>':(firstName ++ "\n")) ++ seqData ++ (rawData2Fast $ tail inDataList)
 
