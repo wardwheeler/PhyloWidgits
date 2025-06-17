@@ -262,6 +262,27 @@ getTBREdgeEditsDec inGraph prunedGraphRootIndex rerootEdge =
        
         (newEdgeOnOldRoot : (flippedEdges <> newRootEdges), LG.toEdge rerootEdge : (fmap LG.toEdge (edgesToFlip <> originalRootEdges)))
 
+-- uniform2Exponential takes the branchParam and uniform random value and converts uniform random double values on [0.0, branchParam]
+-- and retuns exponential random values with parameter branchParam
+uniform2Exponential ::  Double -> Double -> Double
+uniform2Exponential branchParam uniVal =
+    if not (branchParam > 0.0) then 
+        errorWithoutStackTrace ("Branch length parameter (double) must be > 0.0: " <> (show branchParam))
+    else
+        (-1.0 / branchParam) * (log (uniVal / branchParam))
+
+-- relabelEdges relabels edges for newick output (could generalize)
+relabelEdges :: [(Double, LG.LEdge String)] -> [LG.LEdge String]
+relabelEdges inPairList =
+    if null inPairList then []
+    else 
+        let (firstWieght', firstEdge') = head inPairList
+            firstEdge =  LG.toEdge firstEdge'
+            firstWieght = show firstWieght'
+        in
+        (LG.toLEdge firstEdge firstWieght) : relabelEdges (tail inPairList) 
+
+
 
 -- | Main function
 main :: IO ()
@@ -269,8 +290,8 @@ main =
   do 
      --get input command filename, ouputs to stdout
     args <- getArgs
-    if (length args /= 4) 
-      then errorWithoutStackTrace "Require four arguments: graph file name (String), number mutations (Integer), mutation neighborhood (NNI/SPR/TBR), and output format (GraphViz/Newick)"
+    if (length args < 5) 
+      then errorWithoutStackTrace "Require four arguments: graph file name (String), number mutations (Integer), mutation neighborhood (NNI/SPR/TBR), output format (GraphViz/Newick), branch length distribution (None, Exponential, Uniform, Constant), and branch length parameter (Float > 0.0)"
       else hPutStrLn stderr "Inputs: "
     mapM_ (hPutStrLn stderr) $ fmap ('\t' :) args
     hPutStrLn stderr ""
@@ -299,6 +320,47 @@ main =
 
     hPutStrLn stderr $ "Mutating gaph with " <> (show numberMutations) <> " mutations in " <> (show mutationNeighborhood) <> " edit neighborhood"
     hPutStrLn stderr "assumes graph has a single outgroup leaf, ie that one of the two children of the root vertex is a leaf"
+
+
+    -- Get branch length stuff
+    let branchDistText = T.toLower $ T.toLower $ T.pack $ (args !! 4)
+    let branchParamString = T.unpack $ T.toLower $ T.toLower $ T.pack $ last args
+    let branchParamMaybe = (readMaybe branchParamString) :: Maybe Double
+
+    let numLeaves = if isJust numLeavesMaybe then fromJust numLeavesMaybe
+                    else errorWithoutStackTrace ("First argument needs to be an integer (e.g. 10): " <> numLeavesString)
+
+    let distribution = if T.head distributionText == 'u' then Uniform
+                       else if T.head distributionText == 'y' then Yule
+                       else errorWithoutStackTrace ("Second argument needs to be 'Uniform' or 'Yule': " <> (args !! 1))
+
+    let outputFormat = if T.head outputFormatText == 'g' then GraphViz
+                       else if T.head outputFormatText == 'n' then Newick
+                       else errorWithoutStackTrace ("Third argument needs to be 'Graphviz' or 'Newick': " <> last args)
+
+    let (branchDistribution, branchParam) = if T.head branchDistText == 'n' then (None, 0.0)
+                                            else 
+                                                if isNothing branchParamMaybe then errorWithoutStackTrace ("Need a branch length parameter (float)--perhaps missing: " <> branchParamString)
+                                                else if (not (fromJust branchParamMaybe > 0.0)) then errorWithoutStackTrace ("Branch length parameter (float) must be > 0.0: " <> branchParamString)
+                                                else 
+                                                    if T.head branchDistText == 'e' then (Exponential, fromJust branchParamMaybe)
+                                                    else if T.head branchDistText == 'u' then (UniformD, fromJust branchParamMaybe)
+                                                    else (Constant, fromJust branchParamMaybe)
+
+   
+    hPutStrLn stderr $ "Mutating tree with " <> (show numLeaves) <> " leaves via a " <> (show distribution) <> " distribution" 
+    if branchDistribution /= None then 
+        hPutStrLn stderr $ "\tBranch/edge lengths/weights drawn from " <> (show branchDistribution)  <> " with parameter " <> (show branchParam)
+    else 
+        hPutStrLn stderr $ "\tWithout branch/edge lengths/weights"
+
+    if branchDistribution == Exponential then
+        hPutStrLn stderr $ "\tMean edge  :" <> (show $ 1.0 / branchParam)
+    else if branchDistribution == UniformD then
+        hPutStrLn stderr $ "\tMean edge rate :" <> (show (branchParam/2.0))
+    else if branchDistribution == Constant then
+        hPutStrLn stderr $ "\tAll edge rates :" <> (show branchParam)
+    else hPutStrLn stderr $ "\tEdges without rates"
 
 
     -- read input graph

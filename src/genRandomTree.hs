@@ -174,7 +174,7 @@ changeLabel (newLableVal, inWordList) =
         if isInfixOf  "Edge" (concat inWordList) == False then (concat inWordList)
         else if  isInfixOf "Digraph" (concat inWordList)  == True then (concat inWordList)
         else 
-            let newWordList = (takeWhile (/=  '[') $ concat inWordList) <> ("[label=" <> (show newLableVal) <>  "];")
+            let newWordList = (takeWhile (/=  '[') $ concat inWordList) <> ("[label=\"" <> (show newLableVal) <>  "\"];")
             in
             newWordList
 
@@ -280,7 +280,7 @@ main =
                             else relabelWDist newBranchLengths $ GFU.fgl2DotString randTreeFGL
 
 
-    let outGraphStringDot' = changeDotPreamble "digraph {" "digraph G {\n\trankdir = LR;\tedge [colorscheme=spectral11];\tnode [shape = none];\n" outGraphStringDot
+    let outGraphStringDot' = changeDotPreamble "digraph{" "digraph G {\n\trankdir = LR;\tedge [colorscheme=spectral11];\tnode [shape = none];\n" outGraphStringDot
 
     -- newick format
 
