@@ -52,6 +52,7 @@ import GraphFormatUtilities qualified as GFU
 import LocalGraph qualified as LG
 import System.Random
 import Text.Read
+import Debug.Trace
 
 -- | Node variety
 data DistributionType = Uniform | Yule 
@@ -59,6 +60,10 @@ data DistributionType = Uniform | Yule
 
 -- | output as Graphviz/Dot or newick
 data OutputFormat = GraphViz | Newick 
+    deriving stock (Show, Eq)
+
+-- | Brnach length distribution
+data BranchDistribution = None | Exponential | UniformD | Constant 
     deriving stock (Show, Eq)
 
 -- changeDotPreamble takes an input string to search for and a new one to add in its place
@@ -141,6 +146,49 @@ genRandTreeFGL inGen numLeaves htuCounter leafList distribution inGraph =
       genRandTreeFGL newGen numLeaves (htuCounter + 1) restList distribution newGraph
      
 
+-- uniform2Exponential takes the branchParam and uniform random value and converts uniform random double values on [0.0, branchParam]
+-- and retuns exponential random values with parameter branchParam
+uniform2Exponential ::  Double -> Double -> Double
+uniform2Exponential branchParam uniVal =
+    if not (branchParam > 0.0) then 
+        errorWithoutStackTrace ("Branch length parameter (double) must be > 0.0: " <> (show branchParam))
+    else
+        (-1.0 / branchParam) * (log (uniVal / branchParam))
+
+-- relabelWDist erlabels graph edges with values from infinite list
+relabelWDist :: [Double] -> String -> String
+relabelWDist edgeValList inString =
+    if null inString then []
+    else 
+        let inLines = fmap words $ lines inString
+            newLines = fmap changeLabel $ zip edgeValList inLines
+        in
+        unlines newLines
+
+-- | changeLabel changes [label=0.0] from to [label=X] list of words
+changeLabel :: (Double, [String]) -> String
+changeLabel (newLableVal, inWordList) =
+    if null inWordList then []
+    else 
+        -- trace (show ((concat inWordList), isInfixOf  "Edge" (concat inWordList),   isInfixOf "Digraph" (concat inWordList) )) $
+        if isInfixOf  "Edge" (concat inWordList) == False then (concat inWordList)
+        else if  isInfixOf "Digraph" (concat inWordList)  == True then (concat inWordList)
+        else 
+            let newWordList = (takeWhile (/=  '[') $ concat inWordList) <> ("[label=" <> (show newLableVal) <>  "];")
+            in
+            newWordList
+
+-- relabelEdges relabels edges for newick output (could generalize)
+relabelEdges :: [(Double, LG.LEdge String)] -> [LG.LEdge String]
+relabelEdges inPairList =
+    if null inPairList then []
+    else 
+        let (firstWieght', firstEdge') = head inPairList
+            firstEdge =  LG.toEdge firstEdge'
+            firstWieght = show firstWieght'
+        in
+        (LG.toLEdge firstEdge firstWieght) : relabelEdges (tail inPairList) 
+
 
 -- | Main function for conversion
 main :: IO ()
@@ -148,8 +196,8 @@ main =
   do 
      --get input command filename, ouputs to stdout
     args <- getArgs
-    if (length args /= 3) 
-      then errorWithoutStackTrace "Require three arguments: number of leaves in tree (Integer), tree distribution (Uniform/Yule), and output format (GraphViz/Newick)"
+    if (length args < 4) 
+      then errorWithoutStackTrace "Require four (or five) arguments: number of leaves in tree (Integer), tree distribution (Uniform/Yule), output format (GraphViz/Newick), branch length distribution (None, Exponential, Uniform, Constant), and branch length parameter (Float > 0.0)"
       else hPutStrLn stderr "Inputs: "
     mapM_ (hPutStrLn stderr) args
     hPutStrLn stderr ""
@@ -157,8 +205,12 @@ main =
     let (numLeavesString, otherArgs) = fromJust $ uncons args
     let distributionText = T.toLower $ T.pack $ fst $ fromJust $ uncons otherArgs
     let outputFormatText = T.toLower $ T.pack $ (snd $ fromJust $ uncons otherArgs) !! 0
+    let branchDistText = T.toLower $ T.pack $ (snd $ fromJust $ uncons otherArgs) !! 1
+    let branchParamString = T.unpack $ T.toLower $ T.pack $ last $ (snd $ fromJust $ uncons otherArgs)
 
     let numLeavesMaybe = (readMaybe numLeavesString) :: Maybe Int
+    let branchParamMaybe = (readMaybe branchParamString) :: Maybe Double
+
 
     let numLeaves = if isJust numLeavesMaybe then fromJust numLeavesMaybe
                     else errorWithoutStackTrace ("First argument needs to be an integer (e.g. 10): " <> numLeavesString)
@@ -171,9 +223,29 @@ main =
                        else if T.head outputFormatText == 'n' then Newick
                        else errorWithoutStackTrace ("Third argument needs to be 'Graphviz' or 'Newick': " <> last args)
 
+    let (branchDistribution, branchParam) = if T.head branchDistText == 'n' then (None, 0.0)
+                                            else 
+                                                if isNothing branchParamMaybe then errorWithoutStackTrace ("Need a branch length parameter (float)--perhaps missing: " <> branchParamString)
+                                                else if (not (fromJust branchParamMaybe > 0.0)) then errorWithoutStackTrace ("Branch length parameter (float) must be > 0.0: " <> branchParamString)
+                                                else 
+                                                    if T.head branchDistText == 'e' then (Exponential, fromJust branchParamMaybe)
+                                                    else if T.head branchDistText == 'u' then (UniformD, fromJust branchParamMaybe)
+                                                    else (Constant, fromJust branchParamMaybe)
 
+   
+    hPutStrLn stderr $ "Creating random tree with " <> (show numLeaves) <> " leaves via a " <> (show distribution) <> " distribution" 
+    if branchDistribution /= None then 
+        hPutStrLn stderr $ "\tBranch/edge lengths/weights drawn from " <> (show branchDistribution)  <> " with parameter " <> (show branchParam)
+    else 
+        hPutStrLn stderr $ "\tWithout branch/edge lengths/weights"
 
-    hPutStrLn stderr $ "Creating random tree with " <> (show numLeaves) <> " leaves via a " <> (show distribution) <> " distribution"
+    if branchDistribution == Exponential then
+        hPutStrLn stderr $ "\tMean edge  :" <> (show $ 1.0 / branchParam)
+    else if branchDistribution == UniformD then
+        hPutStrLn stderr $ "\tMean edge rate :" <> (show (branchParam/2.0))
+    else if branchDistribution == Constant then
+        hPutStrLn stderr $ "\tAll edge rates :" <> (show branchParam)
+    else hPutStrLn stderr $ "\tEdges without rates"
 
 
     -- create leaf labels for tree
@@ -187,17 +259,43 @@ main =
     -- random initialization
     randomGen <- initStdGen
     
-    -- generatge ranodm tree in fgl
-    let randTreeFGL = snd $ genRandTreeFGL randomGen numLeaves (2 :: Int) leafLabelList distribution firstThreeGraph
+    -- generatge random tree in fgl
+    let (newRandGen, randTreeFGL) = genRandTreeFGL randomGen numLeaves (2 :: Int) leafLabelList distribution firstThreeGraph
+
+    let branchLengthsUniform =  randomRs (0.0, branchParam) newRandGen
+
+    let branchLengthsExp =  fmap (uniform2Exponential branchParam) branchLengthsUniform
+
+    let newBranchLengths =  if branchDistribution == Exponential then 
+                                branchLengthsExp
+                            else if branchDistribution == UniformD then 
+                                branchLengthsUniform
+                            else repeat branchParam
 
     -- output trees in formats (newick, dot)
     -- dot format
-    let outGraphStringDot = removeLabel00 $ GFU.fgl2DotString randTreeFGL
+    -- relabelling edges if required
+    let outGraphStringDot = if branchDistribution == None then 
+                                removeLabel00 $ GFU.fgl2DotString randTreeFGL
+                            else relabelWDist newBranchLengths $ GFU.fgl2DotString randTreeFGL
+
+
     let outGraphStringDot' = changeDotPreamble "digraph {" "digraph G {\n\trankdir = LR;\tedge [colorscheme=spectral11];\tnode [shape = none];\n" outGraphStringDot
 
     -- newick format
-    let graphTD = GFU.stringGraph2TextGraphDouble randTreeFGL
-    let outGraphStringNewick = T.unpack $ GFU.fgl2FEN False False graphTD
+
+    -- if need to relabel edges
+    let fglNodes = LG.labNodes randTreeFGL
+    let fglEdges = LG.labEdges randTreeFGL
+
+    let newEdges = if branchDistribution == None then fglEdges
+                   else relabelEdges $ zip newBranchLengths fglEdges
+
+    let relabelledGraph = LG.mkGraph fglNodes newEdges
+
+    let graphTD = GFU.stringGraph2TextGraphDouble relabelledGraph
+    let outGraphStringNewick =  if (branchDistribution == None) then T.unpack $ GFU.fgl2FEN False False graphTD
+                                else T.unpack $ GFU.fgl2FEN True False graphTD
     
 
     if outputFormat == GraphViz then hPutStrLn stdout outGraphStringDot'
