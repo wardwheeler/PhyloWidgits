@@ -63,6 +63,11 @@ data OutputFormat = GraphViz | Newick
 data Neighborhood = NNI | SPR | TBR
    deriving stock (Show, Eq)
 
+-- | Brnach length distribution
+data BranchDistribution = None | Exponential | UniformD | Constant 
+    deriving stock (Show, Eq)
+
+
 -- | maxTries for relooping is random not a good choice-this limts so no unending loops
 maxTries :: Int
 maxTries = 1000
@@ -272,15 +277,14 @@ uniform2Exponential branchParam uniVal =
         (-1.0 / branchParam) * (log (uniVal / branchParam))
 
 -- relabelEdges relabels edges for newick output (could generalize)
-relabelEdges :: [(Double, LG.LEdge String)] -> [LG.LEdge String]
+relabelEdges :: [(Double, LG.LEdge Double)] -> [LG.LEdge Double]
 relabelEdges inPairList =
     if null inPairList then []
     else 
         let (firstWieght', firstEdge') = head inPairList
             firstEdge =  LG.toEdge firstEdge'
-            firstWieght = show firstWieght'
         in
-        (LG.toLEdge firstEdge firstWieght) : relabelEdges (tail inPairList) 
+        (LG.toLEdge firstEdge firstWieght') : relabelEdges (tail inPairList) 
 
 
 
@@ -327,17 +331,6 @@ main =
     let branchParamString = T.unpack $ T.toLower $ T.toLower $ T.pack $ last args
     let branchParamMaybe = (readMaybe branchParamString) :: Maybe Double
 
-    let numLeaves = if isJust numLeavesMaybe then fromJust numLeavesMaybe
-                    else errorWithoutStackTrace ("First argument needs to be an integer (e.g. 10): " <> numLeavesString)
-
-    let distribution = if T.head distributionText == 'u' then Uniform
-                       else if T.head distributionText == 'y' then Yule
-                       else errorWithoutStackTrace ("Second argument needs to be 'Uniform' or 'Yule': " <> (args !! 1))
-
-    let outputFormat = if T.head outputFormatText == 'g' then GraphViz
-                       else if T.head outputFormatText == 'n' then Newick
-                       else errorWithoutStackTrace ("Third argument needs to be 'Graphviz' or 'Newick': " <> last args)
-
     let (branchDistribution, branchParam) = if T.head branchDistText == 'n' then (None, 0.0)
                                             else 
                                                 if isNothing branchParamMaybe then errorWithoutStackTrace ("Need a branch length parameter (float)--perhaps missing: " <> branchParamString)
@@ -348,7 +341,6 @@ main =
                                                     else (Constant, fromJust branchParamMaybe)
 
    
-    hPutStrLn stderr $ "Mutating tree with " <> (show numLeaves) <> " leaves via a " <> (show distribution) <> " distribution" 
     if branchDistribution /= None then 
         hPutStrLn stderr $ "\tBranch/edge lengths/weights drawn from " <> (show branchDistribution)  <> " with parameter " <> (show branchParam)
     else 
@@ -417,16 +409,43 @@ main =
     
     
     -- generatge mutated tree in fgl
-    let mutantGraphFGL = snd $ mutateGraphFGL randomGen 0 numberMutations rootIndex outgroupEdge 0 mutationNeighborhood (GFU.textGraph2StringGraph inputGraph)
+    let (newRandGen, mutantGraphFGL) = mutateGraphFGL randomGen 0 numberMutations rootIndex outgroupEdge 0 mutationNeighborhood (GFU.textGraph2StringGraph inputGraph)
+
+    -- Get random edge weights
+    let branchLengthsUniform =  randomRs (0.0, branchParam) newRandGen
+
+    let branchLengthsExp =  fmap (uniform2Exponential branchParam) branchLengthsUniform
+
+    let newBranchLengths =  if branchDistribution == Exponential then 
+                                branchLengthsExp
+                            else if branchDistribution == UniformD then 
+                                branchLengthsUniform
+                            else repeat branchParam
+
+
+    -- relabel edge weights if needed
+    let fglNodes = LG.labNodes mutantGraphFGL
+    let fglEdges = LG.labEdges mutantGraphFGL
+
+    let newEdges = if branchDistribution == None then fglEdges
+                   else relabelEdges $ zip newBranchLengths fglEdges
+
+    let relabelledGraph = LG.mkGraph fglNodes newEdges
 
     -- output trees in formats (newick, dot)
     -- dot format
-    let outGraphStringDot = removeLabel00 $ GFU.fgl2DotString mutantGraphFGL
+    let outGraphStringDot = if branchDistribution == None then 
+                                removeLabel00 $ GFU.fgl2DotString relabelledGraph
+                            else GFU.fgl2DotString relabelledGraph
+
     let outGraphStringDot' = changeDotPreamble "digraph {" "digraph G {\n\trankdir = LR;\tedge [colorscheme=spectral11];\tnode [shape = none];\n" outGraphStringDot
 
     -- newick format
-    --let graphTD = GFU.stringGraph2TextGraphDouble mutantGraphFGL
-    let outGraphStringNewick = T.unpack $ GFU.fgl2FEN False False (GFU.stringGraph2TextGraph mutantGraphFGL)
+    --let graphTD = GFU.stringGraph2TextGraphDouble relabelledGraph
+    let outGraphStringNewick = if branchDistribution == None then 
+                                    T.unpack $ GFU.fgl2FEN False False (GFU.stringGraph2TextGraph relabelledGraph)
+                                else 
+                                    T.unpack $ GFU.fgl2FEN True False (GFU.stringGraph2TextGraph relabelledGraph)
 
     if outputFormat == GraphViz then hPutStrLn stdout outGraphStringDot'
     else hPutStrLn stdout outGraphStringNewick
