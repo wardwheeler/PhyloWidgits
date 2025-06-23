@@ -54,7 +54,11 @@ import System.Random
 import Text.Read
 import Debug.Trace
 
--- | Node variety
+-- | Graph Type
+data GraphType = Tree | Network
+    deriving stock (Show, Eq)
+
+-- | Tree distribution  variety
 data DistributionType = Uniform | Yule 
     deriving stock (Show, Eq)
 
@@ -283,31 +287,50 @@ main =
      --get input command filename, ouputs to stdout
     args <- getArgs
     if (length args < 4) 
-      then errorWithoutStackTrace "Require four (or five) arguments: number of leaves in tree (Integer), tree distribution (Uniform/Yule), output format (GraphViz/Newick), branch length distribution (None, Exponential, Uniform, Constant), and branch length parameter (Float > 0.0)"
+      then errorWithoutStackTrace "Require five (or six) arguments: graphType (tree or network), number of leaves in tree (Integer), tree distribution (Uniform/Yule), output format (GraphViz/Newick), branch length distribution (None, Exponential, Uniform, Constant), and branch length parameter (Float > 0.0)"
       else hPutStrLn stderr "Inputs: "
     mapM_ (hPutStrLn stderr) args
     hPutStrLn stderr ""
     
-    let (numLeavesString, otherArgs) = fromJust $ uncons args
-    let distributionText = T.toLower $ T.pack $ fst $ fromJust $ uncons otherArgs
-    let outputFormatText = T.toLower $ T.pack $ (snd $ fromJust $ uncons otherArgs) !! 0
-    let branchDistText = T.toLower $ T.pack $ (snd $ fromJust $ uncons otherArgs) !! 1
+    let (graphTypeString, otherArgs) = fromJust $ uncons args
+    let numLeavesString = T.unpack $ T.toLower $ T.pack $ fst $ fromJust $ uncons otherArgs
+    let distributionText = T.toLower $ T.pack $ (snd $ fromJust $ uncons otherArgs) !! 0
+    let outputFormatText = T.toLower $ T.pack $ (snd $ fromJust $ uncons otherArgs) !! 1
+    let branchDistText = T.toLower $ T.pack $ (snd $ fromJust $ uncons otherArgs) !! 2
     let branchParamString = T.unpack $ T.toLower $ T.pack $ last $ (snd $ fromJust $ uncons otherArgs)
 
     let numLeavesMaybe = (readMaybe numLeavesString) :: Maybe Int
     let branchParamMaybe = (readMaybe branchParamString) :: Maybe Double
 
+    let graphTypeText = T.toLower $ T.pack graphTypeString
+
+
+    let graphType = if T.head graphTypeText == 't' then Tree
+                    else if T.head graphTypeText == 'n' then Network
+                    else errorWithoutStackTrace ("First argument needs to be an 'Tree' or 'Network' : " <> (T.unpack graphTypeText))
+
+
+    let networkNodeNumber = if graphType == Tree then 0
+                                  else
+                                      let paramPart = dropWhile (/= ':') graphTypeString
+                                          netNodeString = drop 1 paramPart
+                                          netNodeNumberMaybe = (readMaybe netNodeString) :: Maybe Int
+                                      in
+                                      if null paramPart || null netNodeString || isNothing netNodeNumberMaybe then
+                                            errorWithoutStackTrace ("'Network' must be followed by a network node number (:Integer) ie 'network:2' " <> (T.unpack graphTypeText))
+                                      else fromJust netNodeNumberMaybe
+
 
     let numLeaves = if isJust numLeavesMaybe then fromJust numLeavesMaybe
-                    else errorWithoutStackTrace ("First argument needs to be an integer (e.g. 10): " <> numLeavesString)
+                    else errorWithoutStackTrace ("Second argument needs to be an integer (e.g. 10): " <> numLeavesString)
 
     let distribution = if T.head distributionText == 'u' then Uniform
                        else if T.head distributionText == 'y' then Yule
-                       else errorWithoutStackTrace ("Second argument needs to be 'Uniform' or 'Yule': " <> (args !! 1))
+                       else errorWithoutStackTrace ("Third argument needs to be 'Uniform' or 'Yule': " <> (args !! 1))
 
     let outputFormat = if T.head outputFormatText == 'g' then GraphViz
                        else if T.head outputFormatText == 'n' then Newick
-                       else errorWithoutStackTrace ("Third argument needs to be 'Graphviz' or 'Newick': " <> last args)
+                       else errorWithoutStackTrace ("Fourth argument needs to be 'Graphviz' or 'Newick': " <> last args)
 
     let (branchDistribution, branchParam) = if T.head branchDistText == 'n' then (None, 0.0)
                                             else 
@@ -319,7 +342,7 @@ main =
                                                     else (Constant, fromJust branchParamMaybe)
 
    
-    hPutStrLn stderr $ "Creating random tree with " <> (show numLeaves) <> " leaves via a " <> (show distribution) <> " distribution" 
+    hPutStrLn stderr $ "Creating random "<> (show graphType) <> " with " <> (show networkNodeNumber) <> " network nodes and " <> (show numLeaves) <> " leaves via a " <> (show distribution) <> " distribution" 
     if branchDistribution /= None then 
         hPutStrLn stderr $ "\tBranch/edge lengths/weights drawn from " <> (show branchDistribution)  <> " with parameter " <> (show branchParam)
     else 
@@ -358,19 +381,8 @@ main =
                                 branchLengthsUniform
                             else repeat branchParam
 
-    -- output trees in formats (newick, dot)
-    -- dot format
-    -- relabelling edges if required
-    let outGraphStringDot = if branchDistribution == None then 
-                                removeLabel00 $ GFU.fgl2DotString randTreeFGL
-                            else relabelWDist newBranchLengths $ GFU.fgl2DotString randTreeFGL
 
-
-    let outGraphStringDot' = changeDotPreamble "digraph{" "digraph G {\n\trankdir = LR;\tedge [colorscheme=spectral11];\tnode [shape = none];\n" outGraphStringDot
-
-    -- newick format
-
-    -- if need to relabel edges
+    -- relabel edge weights if needed
     let fglNodes = LG.labNodes randTreeFGL
     let fglEdges = LG.labEdges randTreeFGL
 
@@ -379,10 +391,21 @@ main =
 
     let relabelledGraph = LG.mkGraph fglNodes newEdges
 
-    let graphTD = GFU.stringGraph2TextGraphDouble relabelledGraph
-    let outGraphStringNewick =  if (branchDistribution == None) then T.unpack $ GFU.fgl2FEN False False graphTD
-                                else T.unpack $ GFU.fgl2FEN True False graphTD
-    
+    -- output trees in formats (newick, dot)
+    -- dot format
+    -- relabelling edges if required
+    let outGraphStringDot = if branchDistribution == None then 
+                                removeLabel00 $ GFU.fgl2DotString relabelledGraph
+                            else GFU.fgl2DotString relabelledGraph
+
+    let outGraphStringDot' = changeDotPreamble "digraph {" "digraph G {\n\trankdir = LR;\tedge [colorscheme=spectral11];\tnode [shape = none];\n" outGraphStringDot
+
+    -- newick format
+    --let graphTD = GFU.stringGraph2TextGraphDouble relabelledGraph
+    let outGraphStringNewick = if branchDistribution == None then 
+                                    T.unpack $ GFU.fgl2FEN False False (GFU.stringGraph2TextGraphDouble relabelledGraph)
+                                else 
+                                    T.unpack $ GFU.fgl2FEN True False (GFU.stringGraph2TextGraphDouble relabelledGraph)
 
     if outputFormat == GraphViz then hPutStrLn stdout outGraphStringDot'
     else hPutStrLn stdout outGraphStringNewick
