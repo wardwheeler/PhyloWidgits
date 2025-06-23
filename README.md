@@ -14,6 +14,11 @@ filterFasta
 genRandomTree
 	Generates a "random" tree specifying leaf number and tree distributin (Uniform, Yule)
 	outputs to stdout (> outfile.tre)
+	(now deprecated into genRandomGraph)
+
+genRandomGraph
+	Generates a "random" graph specifying graphtype (network or tree), leaf number and tree distributin (Uniform, Yule)
+	outputs graps and any display trees to stdout (> outfile)
 
 getElements
 	Returns file of alphabet symbols from fasta/c file

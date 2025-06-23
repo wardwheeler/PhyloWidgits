@@ -482,45 +482,47 @@ labParents inGraph inNode =
 
 
 {- | isPhylogeneticGraph checks various issues to see if
-there is wierdness in graph
+there is wierdness in graph -}
 
-isPhylogeneticGraph ∷ (Show a, Eq a, NFData a, Show b, Eq b) ⇒ Gr a b → PhyG Bool
+isPhylogeneticGraph ∷ (Show a, Eq a, Show b, Eq b) ⇒ Gr a b → Bool
 isPhylogeneticGraph inGraph =
     if isEmpty inGraph
-        then pure False
+        then  False
         else
             let nodeList = fmap fst $ labNodes inGraph
                 indegreeList = fmap (inn inGraph) nodeList
                 outdegreeList = fmap (out inGraph) nodeList
             in  if hasDuplicateEdgesNub inGraph
-                    then pure False
+                    then  False
                     else
                         if length (getRoots inGraph) /= 1
-                            then pure False
+                            then  False
                             else
                                 if outdeg inGraph (head $ getRoots inGraph) /= 2
-                                    then pure False
+                                    then  False
                                     else
                                         if (not . null) (getIsolatedNodes inGraph)
-                                            then pure False
+                                            then  False
                                             else
                                                 if (not . null) (filter ((> 2) . length) indegreeList)
-                                                    then pure False
+                                                    then  False
                                                     else
                                                         if (not . null) (filter ((> 2) . length) outdegreeList)
-                                                            then pure False
+                                                            then  False
                                                             else
                                                                 if parentsInChain inGraph
-                                                                    then pure False
-                                                                    else do
-                                                                        consistent ← isGraphTimeConsistent inGraph
+                                                                    then  False
+                                                                    else 
+                                                                        let consistent = isGraphTimeConsistent inGraph
+                                                                        in
                                                                         if not consistent
-                                                                            then pure False
-                                                                            else pure True
--}
+                                                                            then  False
+                                                                            else  True
 
 
--- | removeParentsInChain checks the parents of each netowrk node are not anc/desc of each other
+{-Not sure why there are these two versions-}
+
+-- | parentsInChain checks the parents of each netowrk node are not anc/desc of each other
 parentsInChain ∷ (Eq a, Eq b, Show a) ⇒ Gr a b → Bool
 parentsInChain inGraph =
     if isEmpty inGraph
@@ -553,6 +555,30 @@ parentsInChain inGraph =
                                     else False
     where
         pairToList (a, b) = [fst a, fst b]
+
+{- | parentInChain checks for parents in chain ie network edges
+that implies a network event between nodes where one is the ancestor of the other
+a time violation
+-}
+parentInChain ∷ (Show a, Eq a, Eq b) ⇒ Gr a b → Bool
+parentInChain inGraph =
+    if isEmpty inGraph
+        then error "Null graph in parentInChain"
+        else
+            let (_, _, _, netVertexList) = splitVertexList inGraph
+                parentNetVertList = fmap (labParents inGraph) $ fmap fst netVertexList
+
+                -- get list of nodes that are transitively equal in age
+                concurrentList = mergeConcurrentNodeLists parentNetVertList []
+                concurrentPairList = concatMap getListPairs concurrentList
+
+                -- get pairs that violate concurrency
+                violatingConcurrentPairs = concatMap (concurrentViolatePair inGraph) concurrentPairList
+
+            in  if null violatingConcurrentPairs
+                    then False
+                    else True
+
 
 
 -- | descendants of unlabelled node
@@ -1647,29 +1673,25 @@ notMatchEdgeIndices unlabeledEdegList labelledEdge =
         then False
         else True
 
-{-
+
 -- | isGraphTimeConsistent retuns False if graph fails time consistency
-isGraphTimeConsistent ∷ (Show a, Eq a, Eq b, NFData a) ⇒ Gr a b → PhyG Bool
+isGraphTimeConsistent ∷ (Show a, Eq a, Eq b) ⇒ Gr a b → Bool
 isGraphTimeConsistent inGraph =
     if isEmpty inGraph
-        then pure True
+        then False
         else
             if isTree inGraph
-                then pure True
+                then True
                 else
                     let coevalNodeConstraintList = coevalNodePairs inGraph
                         -- addAction :: (LNode a, LNode a) -> (LNode a, LNode a, [LNode a], [LNode a], [LNode a], [LNode a])
-                        addAction = addBeforeAfterToPair inGraph
-                    in  do
-                            pMap ← getParallelChunkMap
-                            let coevalNodeConstraintList' = pMap addAction coevalNodeConstraintList
-                            -- coevalNodeConstraintList' = PU.seqParMap PU.myStrategy  (addBeforeAfterToPair inGraph) coevalNodeConstraintList -- `using`  PU.myParListChunkRDS
-                            let coevalPairsToCompareList = getListPairs coevalNodeConstraintList'
-                            let timeOffendingEdgeList = getEdgesToRemoveForTime inGraph coevalPairsToCompareList
+                        coevalNodeConstraintList' = fmap (addBeforeAfterToPair inGraph) coevalNodeConstraintList
+                        coevalPairsToCompareList = getListPairs coevalNodeConstraintList'
+                        timeOffendingEdgeList = getEdgesToRemoveForTime inGraph coevalPairsToCompareList
+                    in
+                    null timeOffendingEdgeList
 
-                            pure $ null timeOffendingEdgeList
 
--}
 
 {- | addBeforeAfterToPair adds before and after node list to pari of nodes for later use
 in time contraint edge removal
@@ -1849,29 +1871,6 @@ joinGraphOnEdge inGraph (x, y, l) parentofPrunedSubGraph =
                 -- make new graph
                 -- trace ("JGE:" <> (show edgeToInvade) <> " " <> (show (parentofPrunedSubGraph, graphToJoinRoot))) --  <> "\n" <> (prettify inGraph))
                 insEdges [edgeToCreate0, edgeToCreate1] $ delEdge (x, y) inGraph
-
-
-{- | parentsInChain checks for parents in chain ie network edges
-that implies a network event between nodes where one is the ancestor of the other
-a time violation
--}
-parentInChain ∷ (Show a, Eq a, Eq b) ⇒ Gr a b → Bool
-parentInChain inGraph =
-    if isEmpty inGraph
-        then error "Null graph in parentInChain"
-        else
-            let (_, _, _, netVertexList) = splitVertexList inGraph
-                parentNetVertList = fmap (labParents inGraph) $ fmap fst netVertexList
-
-                -- get list of nodes that are transitively equal in age
-                concurrentList = mergeConcurrentNodeLists parentNetVertList []
-                concurrentPairList = concatMap getListPairs concurrentList
-
-                -- get pairs that violate concurrency
-                violatingConcurrentPairs = concatMap (concurrentViolatePair inGraph) concurrentPairList
-            in  if null violatingConcurrentPairs
-                    then False
-                    else True
 
 
 {- | getSisterSisterEdgeList take a graph and returns list of edges where two network nodes
