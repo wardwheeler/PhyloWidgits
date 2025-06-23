@@ -371,7 +371,9 @@ main =
     -- generatge random tree in fgl
     let (newRandGen, randTreeFGL) = genRandTreeFGL randomGen numLeaves (2 :: Int) leafLabelList distribution firstThreeGraph
 
-    let branchLengthsUniform =  randomRs (0.0, branchParam) newRandGen
+    let (randGen2, randGen3) = splitGen newRandGen
+
+    let branchLengthsUniform =  randomRs (0.0, branchParam) randGen2
 
     let branchLengthsExp =  fmap (uniform2Exponential branchParam) branchLengthsUniform
 
