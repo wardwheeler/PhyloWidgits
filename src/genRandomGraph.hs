@@ -229,10 +229,14 @@ isEdgePairPermissible inGraph constraintList (edge1@(u, v, _), edge2@(u', v', _)
                                             if not (LG.meetsAllCoevalConstraintsNodes (fmap removeNodeLabels constraintList) edge1 edge2)
                                                 then False
                                                 else
-                                                    if LG.parentsInChain inGraph
+                                                    -- need to make sure source edge not ancestor to target
+                                                    let (_, ancestralEdges) = LG.nodesAndEdgesBefore inGraph [(u', fromJust $ LG.lab inGraph u')]
+                                                        isAncestor = edge1 `elem` ancestralEdges
+                                                    in
+                                                    -- if LG.parentsInChain inGraph
                                                     -- if (isAncDescEdge inGraph edge1 edge2)
-                                                        then False
-                                                        else -- get children of u' to make sure no net children
+                                                    if isAncestor then False
+                                                    else -- get children of u' to make sure no net children
 
                                                             if (not . null) $ filter (== True) $ fmap (LG.isNetworkNode inGraph) $ LG.descendants inGraph u'
                                                                 then False
@@ -259,7 +263,11 @@ getPermissibleEdgePairs inGraph =
     if LG.isEmpty inGraph
         then error "Empty input graph in isEdgePairPermissible"
         else
-            let edgeList = LG.labEdges inGraph
+            let rootIndex = fst $ head $ LG.getRoots inGraph
+                edgeList' = LG.labEdges inGraph
+
+                edgeList = filter ((/= rootIndex) . fst3) edgeList'
+
 
                 -- edges to potentially conenct
                 edgePairs = cartProd edgeList edgeList
@@ -283,18 +291,28 @@ getPermissibleEdgePairs inGraph =
 -- new edges created as new edge directed from (a,b) to (u,v)
 -- new edges (a,i) (i,b), (i, i+1), (u,i+1), (i+1,v)
 addRandNetworkNodes ::  (Eq a, Eq b, Show a) => StdGen -> LG.Gr a b ->  Int -> Int -> (StdGen, LG.Gr a b)
-addRandNetworkNodes randGen inputTree networkNodeNumber counter =
-    if LG.isEmpty inputTree then (randGen, inputTree)
-    else if networkNodeNumber == 0 then (randGen, inputTree)
-    else if counter == networkNodeNumber then (randGen, inputTree)
+addRandNetworkNodes randGen inputGraph networkNodeNumber counter =
+    if LG.isEmpty inputGraph then (randGen, inputGraph)
+    else if networkNodeNumber == 0 then (randGen, inputGraph)
+    else if counter == networkNodeNumber then (randGen, inputGraph)
     else 
-        let edgePairs = getPermissibleEdgePairs inputTree
-            (newRandGen, randEdge) = chooseRandomElement randGen edgePairs
+        let edgePairs = getPermissibleEdgePairs inputGraph
+            (newRandGen, randEdgePair) = chooseRandomElement randGen edgePairs
+            ((aE,bE,_), (uE,vE, _)) = randEdgePair
 
             --add two new  nodes (one network), deleting two edgses and creating 5 new edges, and making new graph
+            inNodes = LG.labNodes inputGraph
+            inEdges = LG.labEdges inputGraph
 
+            -- thes relabelled later or will screw up types
+            newI = (length inNodes, snd $ head inNodes)
+            newI1 = (1 + length inNodes, snd $ head inNodes)
 
-            newGraph = inputTree
+            dummyEdgeLabel = thd3 $ head inEdges
+
+            newEdgeList = [(aE, fst newI, dummyEdgeLabel),(fst newI, bE, dummyEdgeLabel),(fst newI, fst newI1, dummyEdgeLabel),(uE, fst newI1, dummyEdgeLabel),(fst newI1, vE, dummyEdgeLabel)]
+
+            newGraph = LG.insEdges newEdgeList $ LG.insNodes [newI, newI1] $ LG.delLEdges [fst randEdgePair, snd randEdgePair] inputGraph
         in
         addRandNetworkNodes newRandGen newGraph networkNodeNumber (counter + 1)
 
