@@ -112,14 +112,14 @@ deleteLabel0 inWordList =
             in
             unwords newWordList
 
--- | chooseRandomEdge selects man edge at random from list
-chooseRandomEdge :: StdGen -> [LG.LEdge String] -> (StdGen, LG.LEdge String)
-chooseRandomEdge inGen edgesAvailableToSplit =
-   if null edgesAvailableToSplit then error "Null edge list to split"
+-- | chooseRandomElement selects man edge at random from list
+chooseRandomElement :: StdGen -> [a] -> (StdGen,a)
+chooseRandomElement inGen elementList =
+   if null elementList then error "Null edge list to split"
    else 
-      let (index, newGen) = randomR  (0, (length edgesAvailableToSplit) - 1) inGen
+      let (index, newGen) = randomR  (0, (length elementList) - 1) inGen
       in
-      (newGen, edgesAvailableToSplit !! index)
+      (newGen, elementList !! index)
 
 -- | genRandTreeFGL generates a random gfl tree with leaf label list and distribution
 genRandTreeFGL :: StdGen -> Int -> Int -> [String] -> DistributionType -> LG.Gr String String -> (StdGen, LG.Gr String String)
@@ -137,7 +137,7 @@ genRandTreeFGL inGen numLeaves htuCounter leafList distribution inGraph =
                                   else 
                                        filter ((<  numLeaves) . snd3) nonOutgroupEgdeList
 
-          (newGen, edgeToSplit@(e,v,_)) = chooseRandomEdge inGen edgesAvailableToSplit
+          (newGen, edgeToSplit@(e,v,_)) = chooseRandomElement inGen edgesAvailableToSplit
           newNodeIndex = numLeaves + htuCounter
           addedTerminalIndex = read (drop 1 firstTerminal) :: Int
           
@@ -277,8 +277,26 @@ getPermissibleEdgePairs inGraph =
                 pairList
 
 
+-- | addRandNetworkNodes randGen3 randTreeFGL' randGen2
+-- edges (a,b) and (u,v) yeild two new nodes indexed beyond what exist (i) -> (i, i+1)
+-- input edges are deleted (a,b) and (u,v)
+-- new edges created as new edge directed from (a,b) to (u,v)
+-- new edges (a,i) (i,b), (i, i+1), (u,i+1), (i+1,v)
+addRandNetworkNodes ::  (Eq a, Eq b, Show a) => StdGen -> LG.Gr a b ->  Int -> Int -> (StdGen, LG.Gr a b)
+addRandNetworkNodes randGen inputTree networkNodeNumber counter =
+    if LG.isEmpty inputTree then (randGen, inputTree)
+    else if networkNodeNumber == 0 then (randGen, inputTree)
+    else if counter == networkNodeNumber then (randGen, inputTree)
+    else 
+        let edgePairs = getPermissibleEdgePairs inputTree
+            (newRandGen, randEdge) = chooseRandomElement randGen edgePairs
+
+            --add two new  nodes (one network), deleting two edgses and creating 5 new edges, and making new graph
 
 
+            newGraph = inputTree
+        in
+        addRandNetworkNodes newRandGen newGraph networkNodeNumber (counter + 1)
 
 -- | Main function for conversion
 main :: IO ()
@@ -369,11 +387,15 @@ main =
     randomGen <- initStdGen
     
     -- generatge random tree in fgl
-    let (newRandGen, randTreeFGL) = genRandTreeFGL randomGen numLeaves (2 :: Int) leafLabelList distribution firstThreeGraph
+    let (newRandGen, randTreeFGL') = genRandTreeFGL randomGen numLeaves (2 :: Int) leafLabelList distribution firstThreeGraph
 
-    let (randGen2, randGen3) = splitGen newRandGen
+    let (randGen2, randGen3) = splitGen newRandGen 
 
-    let branchLengthsUniform =  randomRs (0.0, branchParam) randGen2
+
+    let randTreeFGL = if graphType == Tree then randTreeFGL'
+                           else snd $ addRandNetworkNodes randGen2  randTreeFGL' networkNodeNumber 0
+
+    let branchLengthsUniform =  randomRs (0.0, branchParam) randGen3
 
     let branchLengthsExp =  fmap (uniform2Exponential branchParam) branchLengthsUniform
 
