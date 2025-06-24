@@ -194,6 +194,12 @@ relabelEdges inPairList =
         (LG.toLEdge firstEdge firstWieght) : relabelEdges (tail inPairList) 
 
 
+-- | relabelNode  relabels node with string cersion ofg node index
+relabelNode :: LG.LNode a -> LG.LNode String
+relabelNode (index, _) = (index, "HTU"<> (show index))
+
+
+
 {- | isEdgePairPermissible takes a graph and two edges, coeval contraints, and tests whether a
 pair of edges can be linked by a new edge and satify three consitions:
    1) neither edge is a network edge
@@ -230,12 +236,17 @@ isEdgePairPermissible inGraph constraintList (edge1@(u, v, _), edge2@(u', v', _)
                                                 then False
                                                 else
                                                     -- need to make sure source edge not ancestor to target
-                                                    let (_, ancestralEdges) = LG.nodesAndEdgesBefore inGraph [(u', fromJust $ LG.lab inGraph u')]
+                                                    let (ancestralNodes, ancestralEdges) = LG.nodesAndEdgesBefore inGraph [(u', fromJust $ LG.lab inGraph u')]
+                                                        (ancestralNodesR, ancestralEdgesR) = LG.nodesAndEdgesBefore inGraph [(u, fromJust $ LG.lab inGraph u)]
                                                         isAncestor = edge1 `elem` ancestralEdges
+                                                        isAncestor' = u `elem` (fmap fst $ ancestralNodes)
+                                                        isAncestorR = edge2 `elem` ancestralEdgesR
+                                                        isAncestorR' = u' `elem` (fmap fst $ ancestralNodesR)
                                                     in
+                                                    --trace ("iEP: " <> (show (u,fmap fst ancestralNodes)) <> "->" <> (show isAncestor') <> " " <> (show (LG.toEdge edge1, LG.toEdge  edge2, fmap LG.toEdge ancestralEdges)) <> "->" <> (show isAncestor) ) $ 
                                                     -- if LG.parentsInChain inGraph
                                                     -- if (isAncDescEdge inGraph edge1 edge2)
-                                                    if isAncestor then False
+                                                    if isAncestor' || isAncestorR' || isAncestor || isAncestorR then False
                                                     else -- get children of u' to make sure no net children
 
                                                             if (not . null) $ filter (== True) $ fmap (LG.isNetworkNode inGraph) $ LG.descendants inGraph u'
@@ -282,7 +293,8 @@ getPermissibleEdgePairs inGraph =
                 pairList = fmap fst $ filter ((== True) . snd) $ zip edgePairs edgeTestList
 
                 in
-                pairList
+                if null edgeTestList then []
+                else pairList
 
 
 -- | addRandNetworkNodes randGen3 randTreeFGL' randGen2
@@ -314,7 +326,10 @@ addRandNetworkNodes randGen inputGraph networkNodeNumber counter =
 
             newGraph = LG.insEdges newEdgeList $ LG.insNodes [newI, newI1] $ LG.delLEdges [fst randEdgePair, snd randEdgePair] inputGraph
         in
-        addRandNetworkNodes newRandGen newGraph networkNodeNumber (counter + 1)
+        if null edgePairs then (randGen, LG.empty)
+        else 
+            --trace ("ARNE: " <> (show ((aE,bE),(uE,vE))) <> " from " <> (show $ fmap LG.toEdge inEdges)) $ 
+            addRandNetworkNodes newRandGen newGraph networkNodeNumber (counter + 1)
 
 -- | Main function for conversion
 main :: IO ()
@@ -411,7 +426,12 @@ main =
 
 
     let randTreeFGL = if graphType == Tree then randTreeFGL'
-                           else snd $ addRandNetworkNodes randGen2  randTreeFGL' networkNodeNumber 0
+                      else snd $ addRandNetworkNodes randGen2  randTreeFGL' networkNodeNumber 0
+
+    if LG.isEmpty randTreeFGL then 
+        hPutStrLn stderr "Warning--Could not create a valid phylogenetic network"
+    else hPutStrLn stderr ""
+
 
     let branchLengthsUniform =  randomRs (0.0, branchParam) randGen3
 
@@ -424,14 +444,19 @@ main =
                             else repeat branchParam
 
 
-    -- relabel edge weights if needed
+    -- relabel nodes and edge weights if needed
+    let (fglRoots, fglLeaves, fglTree, fglNet) = LG.splitVertexList randTreeFGL
+    let relabeledHTUs = fmap relabelNode (fglRoots <> fglTree <> fglNet)
+
     let fglNodes = LG.labNodes randTreeFGL
     let fglEdges = LG.labEdges randTreeFGL
+
+    let fglNodes' = fglLeaves <> relabeledHTUs
 
     let newEdges = if branchDistribution == None then fglEdges
                    else relabelEdges $ zip newBranchLengths fglEdges
 
-    let relabelledGraph = LG.mkGraph fglNodes newEdges
+    let relabelledGraph = LG.mkGraph fglNodes' newEdges
 
     -- output trees in formats (newick, dot)
     -- dot format
@@ -451,3 +476,25 @@ main =
 
     if outputFormat == GraphViz then hPutStrLn stdout outGraphStringDot'
     else hPutStrLn stdout outGraphStringNewick
+
+
+    -- output displaytrees if network--True for contact edges/nodes
+    if graphType /= Network then  
+        hPutStrLn stdout ""
+    else do
+        let displayTreeList = LG.generateDisplayTrees True relabelledGraph
+        let outGraphStringDotList = if branchDistribution == None then 
+                                        fmap (changeDotPreamble "digraph {" "digraph G {\n\trankdir = LR;\tedge [colorscheme=spectral11];\tnode [shape = none];\n") $ fmap removeLabel00 $ fmap GFU.fgl2DotString displayTreeList
+                                    else fmap (changeDotPreamble "digraph {" "digraph G {\n\trankdir = LR;\tedge [colorscheme=spectral11];\tnode [shape = none];\n") $ fmap GFU.fgl2DotString displayTreeList
+
+        let outGraphStringNewickList =  if branchDistribution == None then 
+                                            fmap T.unpack $ fmap (GFU.fgl2FEN False False) $ fmap GFU.stringGraph2TextGraphDouble displayTreeList
+                                        else 
+                                            fmap T.unpack $ fmap (GFU.fgl2FEN True False) $ fmap GFU.stringGraph2TextGraphDouble displayTreeList
+
+        hPutStrLn stdout "\nDisplay trees:\n"
+        if outputFormat == GraphViz then 
+           hPutStrLn stdout $ concat $ fmap (<> "\n") outGraphStringDotList
+        else 
+           hPutStrLn stdout $ concat $ fmap (<> "\n") outGraphStringNewickList
+    
