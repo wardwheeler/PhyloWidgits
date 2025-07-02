@@ -488,9 +488,9 @@ main =
                                     else fmap (changeDotPreamble "digraph {" "digraph G {\n\trankdir = LR;\tedge [colorscheme=spectral11];\tnode [shape = none];\n") $ fmap GFU.fgl2DotString displayTreeList
 
         let outGraphStringNewickList =  if branchDistribution == None then 
-                                            fmap T.unpack $ fmap (GFU.fgl2FEN False True) $ fmap GFU.stringGraph2TextGraphDouble displayTreeList
+                                            fmap T.unpack $ fmap (GFU.fgl2FEN False False) $ fmap GFU.stringGraph2TextGraphDouble displayTreeList
                                         else 
-                                            fmap T.unpack $ fmap (GFU.fgl2FEN True True) $ fmap GFU.stringGraph2TextGraphDouble displayTreeList
+                                            fmap T.unpack $ fmap (GFU.fgl2FEN True False) $ fmap GFU.stringGraph2TextGraphDouble displayTreeList
 
         hPutStrLn stdout "\nDisplay trees:\n"
         if outputFormat == GraphViz then 
