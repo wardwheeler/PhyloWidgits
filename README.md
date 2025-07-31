@@ -52,7 +52,7 @@ shuffleSequences
 	preserving distributional biases present in source data
 
 graph2Characters
-	Creates group inclusion character dats set (1 charcater per subgraph) in Hennig86/TNT format from an input graph
+	Creates group inclusion character dats set (1 character per subgraph) in Hennig86/TNT format from an input graph
 	in Newick or Graphviz/Dot format.
 	outputs to stdout (> outfile.ss) `
 
