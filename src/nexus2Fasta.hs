@@ -40,7 +40,26 @@ import System.IO
 import System.Process
 import System.Environment
 import Data.List
+import qualified Data.String.Utils as DSU
 import Debug.Trace
+
+-- | removeComments removes commwents '[ bleh ]' from nexus file
+removeComments :: String -> String
+removeComments inString =
+    if null inString then []
+    else 
+        let hasComment = elem '[' inString
+        in
+            if not hasComment then inString
+            else 
+                trace ("Removing comment") $
+                let firstPart = takeWhile (/= '[') inString
+                    secondPart = dropWhile (/=']') inString
+                    newString = firstPart <> (drop 1  secondPart)
+                in
+                --trace (firstPart <> "\n" <> secondPart) $
+                removeComments newString
+
 
 -- | printFasta takes list of two strings (name and sequence) and 
 -- prints with '>' etc
@@ -71,11 +90,12 @@ subRN inString =
 -- | getGuts removes initial stuff through "matrix" line and end stuff after ";"
 getGuts :: String -> [String]
 getGuts inString =
-    let inWords = lines inString
-        notStartList = dropWhile (/= "matrix") inWords
+    let inWords = filter (not . null) $ fmap DSU.strip $ lines $ removeComments inString
+        notStartList = dropWhile (`notElem` ["matrix", "Matrix"]) inWords
         notStartList' = drop 1 notStartList
         middlePart = takeWhile (/= ";") notStartList'
-    in middlePart
+    in --trace ("Info: " <> (show inWords) <> "\n" <> (show (length inWords, length notStartList, length notStartList', length middlePart))) 
+    middlePart
 
 -- | convertSeq takes a sequnece and replaces leading gaps with ?
 convertSeq :: String -> String

@@ -265,6 +265,7 @@ executable nexus2Fasta
   main-is:             nexus2Fasta.hs
   ghc-options:         -O2
   build-depends:       base
+                     , MissingH
                      , process
                      , split
                      , text
