@@ -61,6 +61,20 @@ executable ipaConvert
 
   default-language:    Haskell2010
 
+executable fasta2TNT
+  hs-source-dirs:      src
+  main-is:             fasta2TNT.hs
+  ghc-options:         -O2
+  build-depends:       base
+                     , MissingH
+                     , split
+                     , text
+                     , process
+                     , containers
+
+  other-modules:     
+
+
 executable filterFasta
   hs-source-dirs:      src
   main-is:             filterFasta.hs
