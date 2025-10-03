@@ -347,6 +347,33 @@ executable randomSequences
 
   default-language:    Haskell2010
 
+executable robinsonFoulds
+  hs-source-dirs:      src
+  main-is:             robinsonFoulds.hs
+  ghc-options:         -O2
+  build-depends:       base
+                     , array
+                     , bv
+                     , bv-little
+                     , containers
+                     , deepseq
+                     , process
+                     , fgl
+                     , graphviz
+                     , parallel
+                     , random
+                     , text
+                     , time
+                     , vector
+
+  other-modules:       Cyclic
+                     , GeneralUtilities
+                     , GraphFormatUtilities 
+                     , LocalGraph
+                     , ParallelUtilities
+
+  
+
 executable shuffleSequences 
   hs-source-dirs:      src
   main-is:             shuffleSequences.hs

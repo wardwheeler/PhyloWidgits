@@ -26,6 +26,11 @@ genRandomGraph
 getElements
 	Returns file of alphabet symbols from fasta/c file
 
+graph2Characters
+	Creates group inclusion character dats set (1 character per subgraph) in Hennig86/TNT format from an input graph
+	in Newick or Graphviz/Dot format.
+	outputs to stdout (> outfile.ss)
+
 ia2Fasta
 	Converts Implied Alignment output from PhyG and creates single fasta file by concatenating
                sequences with same taxon name, adding (or not) '#' between fragments
@@ -47,6 +52,9 @@ nexus2Fasta
 pruneRandGraph
 	Prunes graph edges and vertices with 'rand' data key (or other)
 
+robinsonFoulds 
+	Generates normalized Robinson-Foulds distance (Ford andf Wheeler, 20016) modified to allow for different leaf sets.
+ 
 randomSequences
 	Naive random sequences generator based on to alphabet, average and variation length, and missing fraction
                	
@@ -54,10 +62,6 @@ shuffleSequences
 	Creates randomized sequences by shuffling elements of existing sequences, 
 	preserving distributional biases present in source data
 
-graph2Characters
-	Creates group inclusion character dats set (1 character per subgraph) in Hennig86/TNT format from an input graph
-	in Newick or Graphviz/Dot format.
-	outputs to stdout (> outfile.ss) `
 
 Compilation
 
