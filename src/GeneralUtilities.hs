@@ -64,7 +64,7 @@ import System.Random
 import Text.Read
 
 
-
+{-
 {- | traceNOLF is trace modified from Debug/Trace to not have
 a line feed (\n) after message
 -}
@@ -95,7 +95,7 @@ traceNoLFIO msg =
 -- using the FFI.
 foreign import ccall unsafe "HsBase.h debugBelch2"
     debugBelch :: CString -> CString -> IO ()
-
+-}
 
 -- | functions for triples, quadruples
 fst3 :: (a, b, c) -> a

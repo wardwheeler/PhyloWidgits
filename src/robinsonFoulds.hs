@@ -1,7 +1,7 @@
 {- |
-Module      :  graph2Characters
-Description :  Takes a newick or Graphviz formatted graph and outputs Hennig86/TNT formated data set
-               with a charcter for each subgraph 1 if leaf in, 0 if not.
+Module      :  robinsonFoulds
+Description :  Inputs 2 graphs and returns Robinson-Foulds distnace normalized by
+                    resolution and leaf number
 Copyright   :  (c) 2025 Ward C. Wheeler, Division of Invertebrate Zoology, AMNH. All rights reserved.
 License     :  
 
@@ -131,63 +131,58 @@ main =
      --get input command filename, ouputs to stdout
     args <- getArgs
     if (length args /= 1) 
-      then errorWithoutStackTrace "Requires a single argument: graph file name (String)"
+      then errorWithoutStackTrace "Requires a two arguments: graph file names (Strings)"
       else hPutStrLn stderr "Inputs: "
     mapM_ (hPutStrLn stderr) $ fmap ('\t' :) args
     hPutStrLn stderr ""
     
-    let (infileName, otherArgs) = fromJust $ uncons args
+    let infileName1 = args !! 0
+    let infileName1 = args !! 1
 
-    -- read input graph
-    graphFileHandle <- openFile infileName ReadMode
-    graphContents' <- hGetContents' graphFileHandle
-    let graphContents = trim graphContents'
+    -- read input graphs
+    graphFileHandle1 <- openFile infileName1 ReadMode
+    graphContents1' <- hGetContents' graphFileHandle1
+    let graphContents1 = trim graphContents1'
 
-    if null graphContents then errorWithoutStackTrace "\tEmpty graph input"
-    else hPutStrLn stderr "Successfully read input graph"
+    graphFileHandle2 <- openFile infileName2 ReadMode
+    graphContents2' <- hGetContents' graphFileHandle2
+    let graphContents2 = trim graphContents2'
 
-    let firstChar = head graphContents
+    if null graphContents1 then errorWithoutStackTrace "\tEmpty first graph input"
+    else if null graphContents2 then errorWithoutStackTrace "\tEmpty second graph input"
+    else hPutStrLn stderr "Successfully read input graphs"
 
-    -- read iput graph trying enewick and dot returning dot/graphviz format
+    let firstChar1 = head graphContents1
+    let firstChar2 = head graphContents2
+
+    -- read iput graphs trying enewick and dot returning dot/graphviz format
     -- a bit stupid, but has to do with reusing some graphviz functions
-    inputGraph <- if firstChar == '(' then 
+    inputGraph1 <- if firstChar1 == '(' then 
                      -- enewick
-                     pure $ head $ GFU.forestEnhancedNewickStringList2FGLList (T.pack graphContents)  
+                     pure $ head $ GFU.forestEnhancedNewickStringList2FGLList (T.pack graphContents1)  
                       
-                 else if (toLower firstChar == '/') || (toLower firstChar == 'd') || (toLower firstChar == 'g') then do
+                 else if (toLower firstChar1 == '/') || (toLower firstChar1 == 'd') || (toLower firstChar1 == 'g') then do
                      -- gaphviz/dot
-                     newGraphFileHandle <- openFile infileName ReadMode
-                     dotGraph <- LG.hGetDotLocal newGraphFileHandle
-                     hClose newGraphFileHandle
-                     pure $ GFU.relabelFGL $ LG.dotToGraph dotGraph
+                     newGraphFileHandle1 <- openFile infileName1 ReadMode
+                     dotGraph1 <- LG.hGetDotLocal newGraphFileHandle1
+                     hClose newGraphFileHandle1
+                     pure $ GFU.relabelFGL $ LG.dotToGraph dotGraph1
                       
-                 else errorWithoutStackTrace ("Input graph file does not appear to be enewick or dot/graphviz")
+                 else errorWithoutStackTrace ("First input graph file does not appear to be enewick or dot/graphviz")
+
+
+    inputGraph2 <- if firstChar2 == '(' then 
+                     -- enewick
+                     pure $ head $ GFU.forestEnhancedNewickStringList2FGLList (T.pack graphContents2)  
+                      
+                 else if (toLower firstChar2 == '/') || (toLower firstChar2 == 'd') || (toLower firstChar2 == 'g') then do
+                     -- gaphviz/dot
+                     newGraphFileHandle2 <- openFile infileNamew ReadMode
+                     dotGraphw <- LG.hGetDotLocal newGraphFileHandlew
+                     hClose newGraphFileHandlew
+                     pure $ GFU.relabelFGL $ LG.dotToGraph dotGraphw
+                      
+                 else errorWithoutStackTrace ("Second input graph file does not appear to be enewick or dot/graphviz")
 
     
-    -- find graph vertices that are not leaves
-    let htuList = filter (not . LG.isLeafLab inputGraph) $ LG.labNodes inputGraph
-    let leafList = filter (LG.isLeafLab inputGraph) $ LG.labNodes inputGraph
-
-    -- get descendent lists for each node
-    let subGraphNodePairL = fmap (LG.nodesAndEdgesAfter inputGraph) $ fmap (:[]) htuList
-
-    -- remove edges from lists
-    let subGraphNodeLL = fmap fst subGraphNodePairL
-
-    -- remove non-leaves form each list of nodes 
-    let subGraphLeafLL = fmap (filter (LG.isLeafLab inputGraph)) subGraphNodeLL
-
-    -- generate character "columns" for each htu vertex
-    let columnStringLL = fmap (makeColumnCharacters leafList) subGraphLeafLL
-
-    -- create sting of matrix
-    let stringMatrix = fmap (<> "\n") $ transpose columnStringLL
-
-    let fullMatrix = fmap joinNameToMatrix $ zip (fmap T.unpack $ fmap snd leafList) stringMatrix
-
-    --- output matrix file string
-    let firstString = "xread\n'Data recoded from graph " <> infileName <> " by graph2Characters'\n"
-    let secondString = (show $ (length subGraphNodeLL) - 1) <> " " <> (show $length leafList) <> "\n"
-    let endString = ";\ncc -.;\nproc /;\n"
-    
-    hPutStrLn stdout $ firstString <> secondString <> (concat fullMatrix) <> endString
+    hPutStrLn stderr "All done."
