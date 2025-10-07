@@ -373,6 +373,16 @@ executable robinsonFoulds
                      , ParallelUtilities
 
   
+  Default-Extensions:
+    BangPatterns
+    DerivingStrategies
+    ImportQualifiedPost
+    LambdaCase
+    NoGeneralizedNewtypeDeriving
+    RoleAnnotations
+    UnicodeSyntax
+
+  default-language:    Haskell2010
 
 executable shuffleSequences 
   hs-source-dirs:      src

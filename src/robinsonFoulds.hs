@@ -137,7 +137,7 @@ main =
     hPutStrLn stderr ""
     
     let infileName1 = args !! 0
-    let infileName1 = args !! 1
+    let infileName2 = args !! 1
 
     -- read input graphs
     graphFileHandle1 <- openFile infileName1 ReadMode
