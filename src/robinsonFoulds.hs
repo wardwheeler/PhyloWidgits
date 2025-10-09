@@ -177,10 +177,10 @@ main =
                       
                  else if (toLower firstChar2 == '/') || (toLower firstChar2 == 'd') || (toLower firstChar2 == 'g') then do
                      -- gaphviz/dot
-                     newGraphFileHandle2 <- openFile infileNamew ReadMode
-                     dotGraphw <- LG.hGetDotLocal newGraphFileHandlew
-                     hClose newGraphFileHandlew
-                     pure $ GFU.relabelFGL $ LG.dotToGraph dotGraphw
+                     newGraphFileHandle2 <- openFile infileName2 ReadMode
+                     dotGraph2 <- LG.hGetDotLocal newGraphFileHandle2
+                     hClose newGraphFileHandle2
+                     pure $ GFU.relabelFGL $ LG.dotToGraph dotGraph2
                       
                  else errorWithoutStackTrace ("Second input graph file does not appear to be enewick or dot/graphviz")
 
