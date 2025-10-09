@@ -243,8 +243,8 @@ main =
     let edges1 = LG.edges reducedGraph1
     let edges2 = LG.edges reducedGraph2
 
-    let splits1 = filter (/= ([],[])) $ fmap (getSplits reducedGraph1) edges1
-    let splits2 = filter (/= ([],[])) $ fmap (getSplits reducedGraph2) edges2
+    let splits1 = filter (/= ([],[])) $ fmap (getSplits reducedGraph1) $ filter (LG.isBridge reducedGraph1) edges1
+    let splits2 = filter (/= ([],[])) $ fmap (getSplits reducedGraph2) $ filter (LG.isBridge reducedGraph2) edges2
 
     -- get raw RF distances
     let dist12 = getSplitDist splits1 splits2
