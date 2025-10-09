@@ -124,11 +124,44 @@ joinNameToMatrix :: (String, String) -> String
 joinNameToMatrix (fName, fchars)  =
     fName <> "\t" <> (drop 1 fchars)
 
--- | Main function
+
+-- | getSplits returns leaf splits from graph given an edge
+-- sorts lists to make easier to compare later
+getSplits :: (Show a, Show b, Ord a) =>LG.Gr a b → LG.Edge -> ([a],[a])
+getSplits inGraph inEdge =
+    if LG.isEmpty inGraph then error "Empty graph in getSplits"
+    else 
+        let splitGraph = LG.delEdge inEdge inGraph
+            graphComponents = LG.componentGraphs splitGraph
+            leafSplitLL = fmap LG.splitVertexList graphComponents
+            leafVertSplit = fmap (fmap snd) $ fmap snd4 leafSplitLL
+        in
+        if length graphComponents /= 2 then errorWithoutStackTrace ("Graph with components not = 2: " <> (LG.fglToPrettyString splitGraph))
+        else 
+            let leaves1 = leafVertSplit !! 0
+                leaves2 = leafVertSplit !! 1
+            in
+            if length leaves1 < 2 || length leaves2 < 2 then 
+                ([],[])
+            else 
+                if length leaves1 < length leaves2 then (L.sort leaves1, L.sort leaves2)
+                else (L.sort leaves2, L.sort leaves1)
+
+-- | getSplitDist gets teh bnumber of splits in fist list not in second list
+getSplitDist :: (Show a, Eq a) => [([a], [a])] -> [([a], [a])] -> Int
+getSplitDist pairList1 pairList2 =
+    if null pairList1 || null pairList2 then 0
+    else
+        let splitNotInBoth = filter (`notElem` pairList1) pairList2
+        in
+        length splitNotInBoth
+
+
+-- | Main function 
 main :: IO ()
 main = 
   do 
-     --get input command filename, ouputs to stdout
+     --get input graph filenames, outputs to stdout
     args <- getArgs
     if (length args /= 1) 
       then errorWithoutStackTrace "Requires a two arguments: graph file names (Strings)"
@@ -184,5 +217,39 @@ main =
                       
                  else errorWithoutStackTrace ("Second input graph file does not appear to be enewick or dot/graphviz")
 
-    
-    hPutStrLn stderr "All done."
+    -- get overlapping leaf sets
+    let leaves1 = snd4 $ LG.splitVertexList inputGraph1
+    let leaves2 = snd4 $ LG.splitVertexList inputGraph2
+
+    let leafNameList1 = fmap snd leaves1
+    let leafNameList2 = fmap snd leaves2
+
+    let commonLeafNames = L.intersect leafNameList1 leafNameList2
+
+    hPutStrLn stderr $ "Common leaves " <> (show  commonLeafNames)
+
+    -- prune leaves not in overlapping set
+    let leaves2Prune1 = filter ((`notElem` commonLeafNames) . snd) leaves1
+    let leaves2Prune2 = filter ((`notElem` commonLeafNames) . snd) leaves2
+
+    let prunedGraph1 = LG.delNodes (fmap fst leaves2Prune1) inputGraph1
+    let prunedGraph2 = LG.delNodes (fmap fst leaves2Prune2) inputGraph2
+
+    -- contract in1out1 edges removing internal vertices
+    let reducedGraph1 = LG.contractRootOut1Edge $ LG.contractIn1Out1Edges prunedGraph1
+    let reducedGraph2 = LG.contractRootOut1Edge $ LG.contractIn1Out1Edges prunedGraph2
+
+    -- get non-trivial splits for each (if netowrk--via bridging edges)
+    let edges1 = LG.edges reducedGraph1
+    let edges2 = LG.edges reducedGraph2
+
+    let splits1 = filter (/= ([],[])) $ fmap (getSplits reducedGraph1) edges1
+    let splits2 = filter (/= ([],[])) $ fmap (getSplits reducedGraph2) edges2
+
+    -- get raw RF distances
+    let dist12 = getSplitDist splits1 splits2
+    let dist21 = getSplitDist splits2 splits1
+
+    -- get normalized RF
+    hPutStrLn stdout $ show $ (fromIntegral $ dist12 + dist21) / (fromIntegral $ (length splits1 + length splits2))
+
