@@ -163,8 +163,8 @@ main =
   do 
      --get input graph filenames, outputs to stdout
     args <- getArgs
-    if (length args /= 1) 
-      then errorWithoutStackTrace "Requires a two arguments: graph file names (Strings)"
+    if (length args /= 2) 
+      then errorWithoutStackTrace "Requires two arguments: graph file names (Strings)"
       else hPutStrLn stderr "Inputs: "
     mapM_ (hPutStrLn stderr) $ fmap ('\t' :) args
     hPutStrLn stderr ""
