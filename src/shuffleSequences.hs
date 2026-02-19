@@ -2,6 +2,7 @@
 Module      :  shuffle Sequences
 Description :  creates randomized sequences by shuffling elements
                of existing sequences, preserving distributional biases present in source data
+               outputs real data and shuffled data as single file
 Copyright   :  (c) 2024 Ward C. Wheeler, Division of Invertebrate Zoology, AMNH. All rights reserved.
 License     :  
 
@@ -172,7 +173,8 @@ getTNTCharacters inLineList =
         let firstLine = head inLineList
         in
         if null firstLine then getTNTCharacters (tail inLineList)
-        else if head (trim firstLine) `elem` ['x', 'X', '\''] then getTNTCharacters (tail inLineList)
+        else if (head $ words firstLine) `elem` ["xread", "Xread"] then getTNTCharacters (tail inLineList)
+        else if head (trim firstLine) `elem` ['\''] then getTNTCharacters (tail inLineList)
         else if head (trim firstLine) `elem` [';'] then []
         else 
             let stringList = words firstLine
@@ -236,6 +238,7 @@ main =
         let dataSequences = getSequences fileType $ lines infileContents
 
         let inSequenceLines = fmap snd dataSequences
+        let inSequenceNames = fmap fst dataSequences
 
         --hPutStrLn stderr $ concat inSequenceLines
 
@@ -264,6 +267,9 @@ main =
                       else fastList
 
         if fileType /= "tnt" then
-                hPutStrLn stdout (concat newData)
-        else 
-            hPutStrLn stdout ("xread\n" <> (show $ length $ head inSequenceLines) <> " " <> (show $ length newData) <> "\n" <> (concat newData) <> ";\nproc/;")
+                hPutStrLn stdout (infileContents <> (concat newData))
+        else do
+            let origData = fmap (formatSequence fileType) (zip inSequenceNames (V.toList $ fmap V.toList sequenceSymbolLines))
+            let combinedData = origData <> newData
+            let tntEndString = dropWhile (/= ';') infileContents
+            hPutStrLn stdout ("xread\n" <> (show $ length $ head inSequenceLines) <> " " <> (show $ length combinedData) <> "\n" <> (concat combinedData) <> tntEndString)
