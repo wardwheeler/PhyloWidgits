@@ -67,7 +67,25 @@ getSymbols elementType lineString =
     if elementType == "fastc" then words lineString
     else if elementType == "fasta" then 
                 fmap (:[]) $ filter (/= ' ') lineString
-    else errorWithoutStackTrace ("Sequence type must be 'fasta' or 'fastc:" <>  elementType) 
+    else if elementType  == "tnt" then getTNTSymbols lineString
+    else errorWithoutStackTrace ("Sequence type must be 'fasta','fastc', or 'tnt':" <>  elementType) 
+
+-- | getTNTSymbols returns TNT cahracter symbols including polymorphism
+getTNTSymbols :: String -> [String]
+getTNTSymbols lineString =
+    if null lineString then [] -- errorWithoutStackTrace ("Empty charcter string for TNT symbols")
+    else 
+        -- take character by character but special case for polymorphism
+        let firstChar = head lineString
+        in
+        if firstChar `notElem` ['{', '}','(',')','[', ']'] then (firstChar :[]) : getTNTSymbols (tail lineString)
+        else
+            -- polymorphism
+            let charString = takeWhile (`notElem` ['}',')',']']) lineString
+                remainder = dropWhile (`notElem` ['}',')',']']) lineString
+                closeChar = head remainder
+            in
+            (charString <> [closeChar]) : getTNTSymbols (tail remainder)
 
 {- makeMisssingData takes a random generator, missing float val (0-1), and a fasta formated sequence with name
     and makes data missing (removes from list)
@@ -88,8 +106,12 @@ formatSequence :: String -> (String, [String]) -> String
 formatSequence elementLength (seqName, inL) =
     if null inL then []
     else
+        -- tnt characters
+        if elementLength == "tnt" then 
+            seqName <> " " <> (concat inL) <> "\n"
+
         -- fasta charcters of single symbol
-        if elementLength == "fasta" then
+        else if elementLength == "fasta" then
             ">" <> seqName <> "\n" <> (concat inL) <> "\n"
 
         -- multicharcter elements
@@ -121,20 +143,48 @@ makeShuffledSeq inGen sequenceLines curSymbolString =
         in
         makeShuffledSeq newGen sequenceLines (newSymbol : curSymbolString) 
 
--- | getSequences take fasta lines and splits into sequences and returns list 
+-- | getSequences take tnt or fasta lines and splits into sequences and returns list 
 -- of name, sequence pairs
-getSequences :: [String] -> [(String, String)]
-getSequences inLineList =
+getSequences :: String -> [String] -> [(String, String)]
+getSequences fileType inLineList =
+    if null inLineList then []
+
+    --TNT data
+    else if fileType == "tnt" then getTNTCharacters inLineList
+
+    -- fasta/c data
+    else 
+        let firstLine = head inLineList
+        in
+        if null firstLine then getSequences fileType  (tail inLineList)
+        else if head firstLine == '>' then 
+            let (sequenceBody, remainder) = getFirstSequence "" (tail inLineList) (tail inLineList)
+            in
+            (firstLine, sequenceBody) : getSequences fileType remainder
+        else errorWithoutStackTrace ("Format error in input file at line :" <> firstLine)
+
+
+-- | getTNTCharacters parses TNT file to get charcter strings and names
+getTNTCharacters :: [String] -> [(String, String)]
+getTNTCharacters inLineList =
     if null inLineList then []
     else 
         let firstLine = head inLineList
         in
-        if null firstLine then getSequences (tail inLineList)
-        else if head firstLine == '>' then 
-            let (sequenceBody, remainder) = getFirstSequence "" (tail inLineList) (tail inLineList)
+        if null firstLine then getTNTCharacters (tail inLineList)
+        else if head (trim firstLine) `elem` ['x', 'X', '\''] then getTNTCharacters (tail inLineList)
+        else if head (trim firstLine) `elem` [';'] then []
+        else 
+            let stringList = words firstLine
             in
-            (firstLine, sequenceBody) : getSequences remainder
-        else errorWithoutStackTrace ("Format error in input file at line :" <> firstLine)
+            if length stringList /= 2 then errorWithoutStackTrace ("Can only have two strings per line in data section of TNT file (ie taxon name and characters wihout spaces): " <> (show stringList))
+            else 
+                let firstString = readMaybe (stringList !! 0) :: Maybe Int
+                    secondString = readMaybe (stringList !! 1) :: Maybe Int
+                in
+                -- Check if numbers
+                if isJust firstString && isJust secondString then getTNTCharacters   (tail inLineList)
+                else ((stringList !! 0), (stringList !! 1)) : getTNTCharacters   (tail inLineList)
 
 -- | getFirstSequence removes the first sequnce bnody (before '>') and retuns constenated suquence
 -- and reminader of list
@@ -157,13 +207,13 @@ main =
         --get input command filename
         args <- getArgs
         if (length args /= 4) 
-            then errorWithoutStackTrace "Require four arguments:\n\tSingle input file (fasta/c),\n\t'fasta' or 'fastc' for single or multiple character element formats,\n\tnumber (Integer) for number of randomized sequences,\n\tand missing fraction (float [0-1.0))" 
+            then errorWithoutStackTrace "Require four arguments:\n\tSingle input file (fasta/fastc/tnt),\n\t'fasta' or 'fastc' for single or multiple character element formats and tnt for tnt formatted files,\n\tnumber (Integer) for number of randomized sequences,\n\tand missing fraction (float [0-1.0))" 
             else hPutStrLn stderr "Input args: "
         mapM_ (hPutStrLn stderr) (fmap ('\t':) args)
         --hPutStrLn stderr "\n"
 
-        soundFileHandle <- openFile (head args) ReadMode
-        soundContents <- hGetContents soundFileHandle
+        inFileHandle <- openFile (head args) ReadMode
+        infileContents <- hGetContents inFileHandle
 
         let fileType = args !! 1
         let numSeqsMaybe = readMaybe (args !! 2) :: Maybe Int
@@ -178,12 +228,18 @@ main =
             else hPutStrLn stderr ("Missing fraction " <> (show $ fromJust missingValMaybe) <> " of shuffled sequences")
         let missingVal = fromJust missingValMaybe
         
-        --hPutStrLn stderr ("Parsing source file as " <> fileType)
-        let fastaSequences = getSequences $ lines soundContents
+        hPutStr stderr ("Parsing source file as " <> fileType)
 
-        let inSequenceLines = fmap snd fastaSequences
+        if fileType == "tnt" then hPutStrLn stderr (":Assumes tnt file has single line for character data")
+        else hPutStrLn stderr ""        
+        
+        let dataSequences = getSequences fileType $ lines infileContents
 
-        --let inSequenceLines = filter (('>' /=) . head) $ filter (not . null) $ lines soundContents
+        let inSequenceLines = fmap snd dataSequences
+
+        --hPutStrLn stderr $ concat inSequenceLines
+
+        --let inSequenceLines = filter (('>' /=) . head) $ filter (not . null) $ lines infileContents
 
         let sequenceSymbolLines = V.fromList $ fmap V.fromList $ fmap (getSymbols fileType) inSequenceLines
 
@@ -199,7 +255,7 @@ main =
         let nameList = zipWith (<>) (replicate numSeqs "randSeq") (fmap show [0..(numSeqs - 1)])
         let fastList = fmap (formatSequence fileType) (zip nameList randSeqList)
 
-        --hPutStrLn stderr (concat fastList)
+        --hPutStrLn stderr (concat fastList) 
 
         -- new random initialization
         randomGen2 <- newStdGen
@@ -207,4 +263,7 @@ main =
         let newData = if missingVal > 0.0 then makeMisssingData randomGen2 missingVal fastList
                       else fastList
 
-        hPutStrLn stdout (concat newData)
+        if fileType /= "tnt" then
+                hPutStrLn stdout (concat newData)
+        else 
+            hPutStrLn stdout ("xread\n" <> (show $ length $ head inSequenceLines) <> " " <> (show $ length newData) <> "\n" <> (concat newData) <> ";\nproc/;")
