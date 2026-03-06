@@ -8,6 +8,10 @@ csv2Fasta
 csv2TCM 
 	Converts csv sound file to tcm for fastc language file
 
+edgeWeightDist
+	pulls edge weights form graphviz (dot/gv) file produced by PhyG and tests distribution of weights as
+	exponential or uniform via chi-squared statistic
+
 fasta2TNT 
 	converts aligned fasta file to TNT (Goloboff et. al., 2003 et seq.) format. Output to stdout (> outfile.tnt)
 

@@ -47,6 +47,20 @@ executable csv2TCM
 
   other-modules:     ReadFiles
 
+executable edgeWeightDist
+  hs-source-dirs:      src
+  main-is:             edgeWeightDist.hs
+  ghc-options:         -O2
+  build-depends:       base
+                     , MissingH
+                     , split
+                     , text
+                     , process
+                     , containers
+
+  other-modules:     
+
+
 executable ipaConvert
   hs-source-dirs:      src
   main-is:             ipaConvert.hs
