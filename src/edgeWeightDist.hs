@@ -49,6 +49,9 @@ import Data.List.Split
 import Data.Char
 import Data.Maybe
 import Text.Read
+import Statistics.Test.ChiSquared
+import Statistics.Test.Types
+import qualified Data.Vector as V
 
 -- | 'trim' trim removes leading and trailing white space
 trim :: String -> String
@@ -156,11 +159,10 @@ main =
 
         let binList = fmap (getBinNumbers edgeWeights 0) rangeList
         let minBin = minimum binList
-        hPutStrLn stderr ("Bin numbers: " <> (show binList))
 
-        
-
-        
+        if minBin < 5 
+            then hPutStrLn stderr ("Warning low (< 5) Bin numbers: " <> (show binList))
+            else hPutStrLn stderr ("All bin numbers >= 5") 
 
 
         hPutStrLn stderr ("Number of edges = " <> (show $ length edgeWeights) <> " Median value = " <> (show meanVal))
@@ -185,6 +187,16 @@ main =
                      else "Equal"
 
         hPutStrLn stdout result
+
+        -- Actual tests
+        let uniDataVect = V.fromList (zip binList uniformBinList)
+        let expDataVect = V.fromList (zip binList exponentialBinList)
+
+        let extraDF = 0  -- (length edgeWeights) - 2
+        let testValUni = chi2test extraDF uniDataVect
+        let testValExp = chi2test extraDF expDataVect
+
+        hPutStrLn stderr ("Uniform : " <> (show testValUni) <> " Exponential: " <> (show testValExp))
 
 
         hClose graphFileHandle

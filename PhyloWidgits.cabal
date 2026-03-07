@@ -57,8 +57,10 @@ executable edgeWeightDist
                      , text
                      , process
                      , containers
+                     , statistics > 0.15
+                     , vector
 
-  other-modules:     
+  other-modules:    
 
 
 executable ipaConvert
