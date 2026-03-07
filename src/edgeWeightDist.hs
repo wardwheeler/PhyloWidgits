@@ -112,6 +112,15 @@ getBinNumbers edgeWeightList curCount (lowVal, highVal) =
         else 
             getBinNumbers (tail edgeWeightList) curCount (lowVal, highVal)
 
+getExponentialNumber :: Double -> Double -> (Double, Double) -> Double
+getExponentialNumber lambda numEdges (a,b) =
+    numEdges * ((exp $ -1.0 * a * lambda) - (exp $ -1.0 * b * lambda))
+
+chiSquared :: (Int, Double) -> Double
+chiSquared (observed, expected) =
+    (((fromIntegral observed) - expected)^2) / expected
+
+
 -- | 'main' Main Function 
 main :: IO ()
 main = 
@@ -143,15 +152,39 @@ main =
         let minVal = minimum edgeWeights
 
         let rangeList = getRangeList edgeWeights minVal maxVal binNumber
-        hPutStrLn stderr (show rangeList)
+        --hPutStrLn stderr (show rangeList)
 
         let binList = fmap (getBinNumbers edgeWeights 0) rangeList
-        hPutStrLn stderr (show binList)
+        let minBin = minimum binList
+        hPutStrLn stderr ("Bin numbers: " <> (show binList))
+
+        
+
+        
 
 
-        hPutStrLn stderr ("Number of weights = " <> (show $ length edgeWeights) <> " Median value = " <> (show meanVal))
+        hPutStrLn stderr ("Number of edges = " <> (show $ length edgeWeights) <> " Median value = " <> (show meanVal))
         
-        hPutStrLn stderr ("Done")
-        
-        
+        -- Create distribution lists
+        -- uniform total number / bins
+        let uniformBinList = replicate binNumber ((fromIntegral $ length edgeWeights) / (fromIntegral binNumber))
+        --hPutStrLn stderr (show uniformBinList)
+
+        -- exponential interval [a,b] = e^(lambda * a) - e^(lambda * b) * totl number events (edges)
+        let lambda = 1.0 / meanVal
+        let exponentialBinList = fmap (getExponentialNumber lambda (fromIntegral $ length edgeWeights)) rangeList
+        --hPutStrLn stderr (show $ exponentialBinList)
+
+        let uniChiSq = sum $ fmap chiSquared (zip binList uniformBinList)
+        let expChiSq = sum $ fmap chiSquared (zip binList exponentialBinList)
+
+        hPutStrLn stderr ("Chi-squared values for Exponential: " <> (show expChiSq) <> " Uniform: " <> (show uniChiSq))
+
+        let result = if expChiSq < uniChiSq then "Exponential"
+                     else if uniChiSq < expChiSq then "Uniform"
+                     else "Equal"
+
+        hPutStrLn stdout result
+
+
         hClose graphFileHandle
