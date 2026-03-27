@@ -89,6 +89,22 @@ makeNeymanModelString modelName inElements =
             <> "\tRateModifiers  : None;\n" <> "\tChangeModel :Neyman;\n" <> "\tLength : 1;\n"
             <> "};\n"
 
+
+{-
+Makes rows fomr pi vecotor by rotating.  Since later normalized and diagnoals ignored should be
+a reasonable start for gradient search.
+-}
+makeRowFromPiVec :: [Double] -> Int -> String
+makeRowFromPiVec valList index =
+    if index >= (length valList) then error ("Index greater than length of list: " <> (show index) <> " " <> (show valList))
+    else
+        let firstPart = take index valList
+            secondPart = drop index valList
+            stringRep = concat $ intersperse "," $ fmap show (secondPart <> firstPart)
+        in
+        '[' :  (stringRep <> "]")
+
+
 {- makeGTRModelString makes a phyComplexity GTR model with 1.0 values for everything
 -}
 makeGTRModelString :: String -> [String] -> [Double] -> String
@@ -97,13 +113,23 @@ makeGTRModelString modelName inElements elemFreqs =
     else 
         let elementsString = concat $ intersperse "\",\"" inElements
             alphString = "[\"" <> elementsString <> "\"]"
+            
+            -- this for all same ala Neyman
             piFreq = show $ 1.0 / (fromIntegral $ length inElements) 
 
             modelPart1 = "\tChangeModel :GTR : (PiVector:["
             modelPart2 = concat $ intersperse "," $ fmap show elemFreqs
             modelPart3 = "], RMatrix:["
-            modelPart4 = concat $ intersperse "," $ replicate (length inElements) (show  1.0) 
-            modelPart5 = concat $ intersperse "," $ replicate (length inElements) ("[" <> modelPart4 <> "]")
+            
+            -- if all same
+            --modelPart4 = concat $ intersperse "," $ replicate (length inElements) (show  1.0) 
+            -- modelPart5 = concat $ intersperse "," $ replicate (length inElements) ("[" <> modelPart4 <> "]")
+
+            -- can use pi vector as starting point since diagonals are ignored
+            qStuff = fmap (makeRowFromPiVec elemFreqs) [0..(length elemFreqs) - 1]
+            modelPart5 = concat $ intersperse "," qStuff
+
+            
             modelPart6 = "]);\n"
         in
         "\nBlockModel " <> modelName <> " {\n" <>
@@ -215,7 +241,7 @@ main =
         let numUniqueElements = fmap fromIntegral $ fmap (countElements allElements') nonGapElements
         let freqUniqueElements = indelFreq : (fmap (/ (fromIntegral sumLengths)) numUniqueElements)
 
-        hPutStrLn stderr (show freqUniqueElements)
+        --hPutStrLn stderr (show freqUniqueElements)
 
         --tail for remove gaps since added to front
         let formattedList = concat $ tail $ intersperse " " uniqueElements
