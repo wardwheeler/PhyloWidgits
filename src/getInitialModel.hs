@@ -111,7 +111,10 @@ makeGTRModelString modelName inElements =
             <> modelPart1 <> modelPart2 <> modelPart3 <> modelPart5 <> modelPart6
             <> "};\n"
             
-
+removeFASTCAmbiguity :: String -> String
+removeFASTCAmbiguity inFASTCString =
+    if ('[' `elem` inFASTCString) && (']' `elem` inFASTCString) then []
+    else inFASTCString
 
 -- | 'main' Main Function to run latex IPA csv parser
 main :: IO ()
@@ -141,16 +144,48 @@ main =
         let numSpaces = length $ concat $ fmap (filter (== ' ')) sequenceLines
         let numLines = length sequenceLines
 
-        hPutStrLn stderr ("lines: " <> (show numLines) <> " spaces: " <> (show numSpaces))
+        -- hPutStrLn stderr ("lines: " <> (show numLines) <> " spaces: " <> (show numSpaces))
 
-        let fileType = if (numSpaces < numLines) then "fasta"
+        let fileType = if (numSpaces < 3 * numLines) then "fasta"
                        else "fastc"
         
-        hPutStrLn stderr ("Parsing as " <> fileType)
+        hPutStrLn stderr ("Parsing as " <> fileType) 
+        if fileOption == "auto" then hPutStrLn stderr ("\tIf this is not correct then specify file type in command line.")
+        else hPutStr stderr ""
 
-        -- If try to detect if IUPAC nuc/amino acid
 
         let allElements = concat $ fmap (getSymbols fileType) sequenceLines
+
+        -- checks for non-single character, non-IUPAC codes
+        let multipleCharElements = 1 < (maximum $ fmap length allElements)
+        let notNucAA = (0 < (length $ filter (`elem` ["J", "O"]) allElements)) || multipleCharElements
+
+        --hPutStrLn stderr (show (multipleCharElements, notNucAA)) 
+
+        -- check for IUPAC codes and filter out ambiguities
+        let nucleotides = length $ filter (`elem` ["A", "C", "G", "T", "U", "-"]) allElements
+
+        let aminoOnly = 0 < (length $ filter (`elem` ["E", "F", "I", "L", "P", "Q", "Z"]) allElements)
+
+        let aminoAcids = length $ filter (`elem` ["B", "D", "E", "F", "H", "I", "K", "L", "M", "P", "Q", "R", "S", "V", "W", "X", "Y", "Z", "-"]) allElements
+
+        let isNucleotide = (not notNucAA) && nucleotides > (quot (length allElements) 2) 
+        let isAminoAcid = (not notNucAA) && ((aminoAcids > (quot (length allElements) 4)) || aminoOnly)
+        
+
+        -- test amino first since acgt and - are also aa
+        let allElements' = if isNucleotide then
+                                filter (`notElem` ["R", "Y", "S", "W", "M", "K", "H", "B", "V", "D","N", "?"]) allElements
+                           else if isAminoAcid then
+                                filter (`notElem` ["B", "Z", "X", "?"]) allElements 
+                           else if multipleCharElements then
+                                -- remove fastc ambiguities
+                                fmap removeFASTCAmbiguity allElements
+                           else allElements
+
+        if isNucleotide then hPutStrLn stderr "Sequences are assumed to be nucleic acids and ambiguities are not counted"
+        else if isAminoAcid then hPutStrLn stderr "Sequences are assumed to be amino acids and ambiguities are not counted"
+        else hPutStrLn stderr "Sequences are assumed to be neither amino acids nor nucleic acids"
 
         let elementLengths = fmap (getElementNumber fileType) sequenceLines
 
