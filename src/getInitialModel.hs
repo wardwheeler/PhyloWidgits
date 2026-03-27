@@ -97,10 +97,20 @@ a reasonable start for gradient search.
 makeRowFromPiVec :: [Double] -> Int -> String
 makeRowFromPiVec valList index =
     if index >= (length valList) then error ("Index greater than length of list: " <> (show index) <> " " <> (show valList))
+    else if index == 0 then 
+            let newLine = fmap show $ 0.0 : (drop 1 valList)
+                stringRep = concat $ intersperse "," newLine
+            in
+            '[' :  (stringRep <> "]")
+    else if index == ((length valList) - 1) then 
+            let newLine = fmap show $ (take (index -1) valList) <> [0.0]
+                stringRep = concat $ intersperse "," newLine
+            in
+            '[' :  (stringRep <> "]")
     else
         let firstPart = take index valList
-            secondPart = drop index valList
-            stringRep = concat $ intersperse "," $ fmap show (secondPart <> firstPart)
+            secondPart = drop (index + 1) valList
+            stringRep = concat $ intersperse "," $ fmap show (secondPart <> [0.0] <> firstPart)
         in
         '[' :  (stringRep <> "]")
 
