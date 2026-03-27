@@ -189,6 +189,18 @@ executable getElements
 
   default-language:    Haskell2010
 
+executable getInitialModel
+  hs-source-dirs:      src
+  main-is:             getInitialModel.hs
+  ghc-options:         -O2
+  build-depends:       base
+                     , process
+                     , split
+
+  other-modules:     
+
+  default-language:    Haskell2010
+
 executable graph2Characters
   hs-source-dirs:      src
   main-is:             graph2Characters.hs

@@ -30,6 +30,9 @@ genRandomGraph
 getElements
 	Returns file of alphabet symbols from fasta/c file
 
+getInitialModel
+	Returns initial model configuration (GTR/Neyman) from fasta/c file
+
 graph2Characters
 	Creates group inclusion character dats set (1 character per subgraph) in Hennig86/TNT format from an input graph
 	in Newick or Graphviz/Dot format.
