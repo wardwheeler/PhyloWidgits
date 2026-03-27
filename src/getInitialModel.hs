@@ -122,7 +122,7 @@ makeGTRModelString modelName inElements elemFreqs =
             modelPart3 = "], RMatrix:["
             
             -- if all same
-            --modelPart4 = concat $ intersperse "," $ replicate (length inElements) (show  1.0) 
+            -- modelPart4 = concat $ intersperse "," $ replicate (length inElements) (show  1.0) 
             -- modelPart5 = concat $ intersperse "," $ replicate (length inElements) ("[" <> modelPart4 <> "]")
 
             -- can use pi vector as starting point since diagonals are ignored
@@ -225,8 +225,14 @@ main =
         let elementLengths = fmap (getElementNumber fileType) sequenceLines
 
         let maxLength = maximum elementLengths 
+        let minLength = minimum elementLengths
         let sumLengths = sum elementLengths
-        let impliedGaps = sum $ fmap (maxLength - ) elementLengths
+
+        -- this something of an upper estimate. could do max - min also for lower estimate--or the average of the two
+        let impliedGapsMax = sum $ fmap (maxLength - ) elementLengths
+        let impliedGapsMin = maxLength - minLength
+
+        let impliedGaps = quot (impliedGapsMax + impliedGapsMin) 2
 
         let indelFreq = if (numGaps == 0) then
                             (fromIntegral impliedGaps) / (fromIntegral sumLengths)
