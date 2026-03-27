@@ -91,15 +91,16 @@ makeNeymanModelString modelName inElements =
 
 {- makeGTRModelString makes a phyComplexity GTR model with 1.0 values for everything
 -}
-makeGTRModelString :: String -> [String] -> String
-makeGTRModelString modelName inElements =
+makeGTRModelString :: String -> [String] -> [Double] -> String
+makeGTRModelString modelName inElements elemFreqs =
     if null inElements then errorWithoutStackTrace "No elements to make model alphabet"
     else 
         let elementsString = concat $ intersperse "\",\"" inElements
             alphString = "[\"" <> elementsString <> "\"]"
-            piFreq = show $ 1.0 / (fromIntegral $ length inElements)  
+            piFreq = show $ 1.0 / (fromIntegral $ length inElements) 
+
             modelPart1 = "\tChangeModel :GTR : (PiVector:["
-            modelPart2 = concat $ intersperse "," $ replicate (length inElements) piFreq
+            modelPart2 = concat $ intersperse "," $ fmap show elemFreqs
             modelPart3 = "], RMatrix:["
             modelPart4 = concat $ intersperse "," $ replicate (length inElements) (show  1.0) 
             modelPart5 = concat $ intersperse "," $ replicate (length inElements) ("[" <> modelPart4 <> "]")
@@ -116,6 +117,13 @@ removeFASTCAmbiguity inFASTCString =
     if ('[' `elem` inFASTCString) && (']' `elem` inFASTCString) then []
     else inFASTCString
 
+
+countElements :: [String] -> String -> Int
+countElements inList element =
+    if null inList then 0
+    else length $ filter (== element) inList
+
+ 
 -- | 'main' Main Function to run latex IPA csv parser
 main :: IO ()
 main = 
@@ -159,6 +167,7 @@ main =
         -- checks for non-single character, non-IUPAC codes
         let multipleCharElements = 1 < (maximum $ fmap length allElements)
         let notNucAA = (0 < (length $ filter (`elem` ["J", "O"]) allElements)) || multipleCharElements
+        let numGaps = length $ filter (== "-") allElements
 
         --hPutStrLn stderr (show (multipleCharElements, notNucAA)) 
 
@@ -189,21 +198,29 @@ main =
 
         let elementLengths = fmap (getElementNumber fileType) sequenceLines
 
-        let rangeLength = (maximum elementLengths) - (minimum elementLengths)
+        let maxLength = maximum elementLengths 
+        let sumLengths = sum elementLengths
+        let impliedGaps = sum $ fmap (maxLength - ) elementLengths
 
-        let averageLength = round $ (fromIntegral $ sum elementLengths) / (fromIntegral $ length sequenceLines)
+        let indelFreq = if (numGaps == 0) then
+                            (fromIntegral impliedGaps) / (fromIntegral sumLengths)
+                        else (fromIntegral (numGaps + impliedGaps)) / (fromIntegral sumLengths)
+
+        hPutStrLn stderr ("Implied indel frequency: " <> (show indelFreq))
 
         --hPutStrLn stderr ("Warning--filtering out gap ('-') characters in " <> elementFile)
-        let uniqueElements = ["-"] <>  (nub $ filter (/= "-") $ sort $ allElements)
+        let nonGapElements = (nub $ filter (/= "-") $ sort $ allElements')
+        let uniqueElements = ["-"] <>  nonGapElements
+
+        let numUniqueElements = fmap fromIntegral $ fmap (countElements allElements') nonGapElements
+        let freqUniqueElements = indelFreq : (fmap (/ (fromIntegral sumLengths)) numUniqueElements)
+
+        hPutStrLn stderr (show freqUniqueElements)
 
         --tail for remove gaps since added to front
         let formattedList = concat $ tail $ intersperse " " uniqueElements
 
-        --hPutStrLn stderr ("Total elements: " <> (show $ length allElements))
-        --hPutStrLn stderr ("Unique elements: " <> (show $ length uniqueElements))
-        --hPutStrLn stderr ("Average length: " <> (show averageLength))
-        --hPutStrLn stderr ("Range length: " <> (show rangeLength))
-
+        
         -- output files 
         neyModelFileHandle <- openFile neyModelFile WriteMode
         gtrModelFileHandle <- openFile gtrModelFile WriteMode
@@ -217,7 +234,7 @@ main =
         let neymanModelString = makeNeymanModelString neyModelFile uniqueElements
         hPutStrLn neyModelFileHandle neymanModelString
 
-        let gtrModelString = makeGTRModelString gtrModelFile uniqueElements
+        let gtrModelString = makeGTRModelString gtrModelFile uniqueElements freqUniqueElements
         hPutStrLn gtrModelFileHandle gtrModelString
 
         hClose neyModelFileHandle
