@@ -128,15 +128,27 @@ main =
         soundFileHandle <- openFile (head args) ReadMode
         soundContents <- hGetContents soundFileHandle
 
-        let fileType = args !! 1
+        let fileOption = args !! 1
         let outStub = args !! 2
 
         let neyModelFile = outStub <> ".neyModel"
         let gtrModelFile = outStub <> ".gtrModel"
 
+        let sequenceLines = filter (('>' /=) . head) $ filter (not . null) $ lines soundContents
+
+        -- If auto try to detect fasta/fastc
+
+        let numSpaces = length $ concat $ fmap (filter (== ' ')) sequenceLines
+        let numLines = length sequenceLines
+
+        hPutStrLn stderr ("lines: " <> (show numLines) <> " spaces: " <> (show numSpaces))
+
+        let fileType = if (numSpaces < numLines) then "fasta"
+                       else "fastc"
+        
         hPutStrLn stderr ("Parsing as " <> fileType)
 
-        let sequenceLines = filter (('>' /=) . head) $ filter (not . null) $ lines soundContents
+        -- If try to detect if IUPAC nuc/amino acid
 
         let allElements = concat $ fmap (getSymbols fileType) sequenceLines
 
@@ -146,7 +158,7 @@ main =
 
         let averageLength = round $ (fromIntegral $ sum elementLengths) / (fromIntegral $ length sequenceLines)
 
-        hPutStrLn stderr ("Warning--filtering out gap ('-') characters in " <> elementFile)
+        --hPutStrLn stderr ("Warning--filtering out gap ('-') characters in " <> elementFile)
         let uniqueElements = ["-"] <>  (nub $ filter (/= "-") $ sort $ allElements)
 
         --tail for remove gaps since added to front
@@ -163,7 +175,7 @@ main =
         
         hPutStrLn stderr ("Output to files: " <> " " <> neyModelFile <> " " <> gtrModelFile)
 
-        hPutStrLn stderr ("Warning--filtering out gap ('-') characters in " <> elementFile)
+        --hPutStrLn stderr ("Warning--filtering out gap ('-') characters in " <> elementFile)
 
         --hPutStrLn elementFileHandle formattedList 
 
