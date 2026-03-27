@@ -1,7 +1,7 @@
 {- |
 Module      :  getElements
-Description :  gets alphabet symbols from fasta/c file
-                outputs files with alphabet, Neyman and GTR stub models
+Description :  Creates initila model and parameter estimates from fasta/c file
+                Neyman and GTR stub models
 Copyright   :  (c) 2024 Ward C. Wheeler, Division of Invertebrate Zoology, AMNH. All rights reserved.
 License     :  
 
@@ -120,7 +120,7 @@ main =
         --get input command filename
         args <- getArgs
         if (length args /= 3) 
-            then errorWithoutStackTrace "Require three arguments:\n\tSingle input file (fasta/c),\n\t'fasta' or 'fastc' for single or multiple character element formats,\n\tand stub for output files names" 
+            then errorWithoutStackTrace "Require three arguments:\n\tSingle input file (fasta/c),\n\t'fasta', 'fastc', or 'auto' for single or multiple character element formats or auto-detect,\n\tand stub for output model name" 
             else hPutStrLn stderr "Input args: "
         mapM_ (hPutStrLn stderr) (fmap ('\t':) args)
         --hPutStrLn stderr "\n"
@@ -131,11 +131,8 @@ main =
         let fileType = args !! 1
         let outStub = args !! 2
 
-        let elementFile = outStub <> ".elements"
         let neyModelFile = outStub <> ".neyModel"
         let gtrModelFile = outStub <> ".gtrModel"
-        let averageLengthFile = outStub <> ".aveLength"
-        let rangeLengthFile = outStub <> ".rangeLength"
 
         hPutStrLn stderr ("Parsing as " <> fileType)
 
@@ -155,23 +152,20 @@ main =
         --tail for remove gaps since added to front
         let formattedList = concat $ tail $ intersperse " " uniqueElements
 
-        hPutStrLn stderr ("Total elements: " <> (show $ length allElements))
-        hPutStrLn stderr ("Unique elements: " <> (show $ length uniqueElements))
-        hPutStrLn stderr ("Average length: " <> (show averageLength))
-        hPutStrLn stderr ("Range length: " <> (show rangeLength))
+        --hPutStrLn stderr ("Total elements: " <> (show $ length allElements))
+        --hPutStrLn stderr ("Unique elements: " <> (show $ length uniqueElements))
+        --hPutStrLn stderr ("Average length: " <> (show averageLength))
+        --hPutStrLn stderr ("Range length: " <> (show rangeLength))
 
         -- output files 
-        elementFileHandle <- openFile elementFile WriteMode
         neyModelFileHandle <- openFile neyModelFile WriteMode
         gtrModelFileHandle <- openFile gtrModelFile WriteMode
-        avergeLengthFileHandle <- openFile averageLengthFile WriteMode
-        rangeLengthFileHandle <- openFile rangeLengthFile WriteMode
         
-        hPutStrLn stderr ("Output to files: " <> elementFile <> " " <> neyModelFile <> " " <> gtrModelFile)
+        hPutStrLn stderr ("Output to files: " <> " " <> neyModelFile <> " " <> gtrModelFile)
 
         hPutStrLn stderr ("Warning--filtering out gap ('-') characters in " <> elementFile)
 
-        hPutStrLn elementFileHandle formattedList 
+        --hPutStrLn elementFileHandle formattedList 
 
         let neymanModelString = makeNeymanModelString neyModelFile uniqueElements
         hPutStrLn neyModelFileHandle neymanModelString
@@ -179,15 +173,7 @@ main =
         let gtrModelString = makeGTRModelString gtrModelFile uniqueElements
         hPutStrLn gtrModelFileHandle gtrModelString
 
-        hPutStrLn avergeLengthFileHandle (show averageLength)
-
-        hPutStrLn rangeLengthFileHandle (show rangeLength)
-
-        hClose soundFileHandle
-        hClose elementFileHandle
         hClose neyModelFileHandle
         hClose gtrModelFileHandle
-        hClose avergeLengthFileHandle
-        hClose rangeLengthFileHandle
-
+        
 
