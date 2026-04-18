@@ -15,6 +15,9 @@ edgeWeightDist
 fasta2TNT 
 	converts aligned fasta file to TNT (Goloboff et. al., 2003 et seq.) format. Output to stdout (> outfile.tnt)
 
+fastaDNA2AA 
+	converts fasta nucleotide fasta to amiono acids via "standard" triplet coding
+
 filterFasta
 	deletes or includes terminals frotm fasta/c file
 

@@ -91,6 +91,20 @@ executable fasta2TNT
   other-modules:     
 
 
+executable fastaDNA2AA
+  hs-source-dirs:      src
+  main-is:             fastaDNA2AA.hs
+  ghc-options:         -O2
+  build-depends:       base
+                     , MissingH
+                     , split
+                     , text
+                     , process
+                     , containers
+
+  other-modules:     
+
+
 executable filterFasta
   hs-source-dirs:      src
   main-is:             filterFasta.hs
