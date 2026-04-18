@@ -46,56 +46,56 @@ import Data.Maybe
 import Data.Char
 
 
+-- codon2AA tabel for coversion
+codon2AA :: [Char] -> Char
+codon2AA x 
+    | x `elem` ["GCT", "GCC", "GCA", "GCG"] = 'A'
+    | x `elem` ["CGT", "CGC", "CGA", "CGG", "AGA", "AGG"] = 'R'
+    | x `elem` ["AAT", "AAC"]                             = 'N'
+    | x `elem` ["GAT", "GAC"]                             = 'D'
+    | x `elem` ["TGT", "TGC"]                             = 'C'
+    | x `elem` ["CAA", "CAG"]                             = 'Q'
+    | x `elem` ["GAA", "GAG"]                             = 'E'
+    | x `elem` ["GGT", "GGC", "GGA", "GGG"]               = 'G'
+    | x `elem` ["CAT", "CAC"]                             = 'H'
+    | x `elem` ["ATT", "ATC", "ATA"]                      = 'I'
+    | x `elem` ["ATG"]                                    = 'M'
+    | x `elem` ["TTA", "TTG", "CTT", "CTC", "CTA", "CTG"] = 'L'
+    | x `elem` ["AAA", "AAG"]                             = 'K'
+    | x `elem` ["TTT", "TTC"]                             = 'F'
+    | x `elem` ["CCT", "CCC", "CCA", "CCG"]               = 'P'
+    | x `elem` ["TCT", "TCC", "TCA", "TCG", "AGT", "AGC"] = 'S'
+    | x `elem` ["ACT", "ACC", "ACA", "ACG"]               = 'T'
+    | x `elem` ["TGG"]                                    = 'W'
+    | x `elem` ["TAT", "TAC"]                             = 'Y'
+    | x `elem` ["GTT", "GTC", "GTA", "GTG"]               = 'V'
+    | x `elem` ["TAA", "TGA", "TAG"]                      = '*'
+    | x `elem` ["---", "..."]                             = '-'
+    | x == "~~~"                                          = '-'
+    | "N" `isInfixOf` x                                 = 'X'
+    | "-" `isInfixOf` x                                 = '-'
+    | "." `isInfixOf` x                                 = '-'
+    -- | otherwise = errorWithoutStackTrace ("Unidentified codon: " <> x)
+    | otherwise = 'X'
 
--- | recodeNucleotide takes a single letter nucleotide charcater and returns the numerical equivalent
--- indels as missing or 5th state
-recodeNucleotide :: String -> Char -> String 
-recodeNucleotide indelMissing inChar =
-  if inChar == ' ' then ""
-  else if inChar == '-' then
-    if indelMissing == "?" then "?"
-    else if indelMissing == "5" then "5"
-    else errorWithoutStackTrace ("Unrecognized option for indel coding: " ++ indelMissing)
-  else -- non-indel nucleotides
-    let recChar = toUpper inChar
+-- getAA takes a triplet and returns Amino acid code via standard table
+getAA :: [Char] -> Char
+getAA inCodon =
+  if length inCodon /= 3 then errorWithoutStackTrace ("Codon 'triplet' does not have 3 nucleorides: " <> inCodon)
+  else 
+    codon2AA inCodon
+
+
+-- convert2AminoAcids takes fasta lines and if starts with '>" returns, else
+-- assumes in phase and converts to amino acid codes
+convert2AminoAcids :: String -> String
+convert2AminoAcids inString =
+  if null inString then []
+  else if head inString == '>' then inString <> "\n"
+  else 
+    let inThrees = chunksOf 3 inString
     in
-    if recChar == 'A' then "0"
-    else if recChar == 'C' then "1"
-    else if recChar == 'G' then "2"
-    else if recChar == 'T' then "3"
-    else if recChar == 'U' then "3"
-    else if recChar == 'X' then "[0123]"
-    else if recChar == 'Y' then "[13]"
-    else if recChar == 'R' then "[02]"
-    else if recChar == 'S' then "[12]"
-    else if recChar == 'W' then "[04]"
-    else if recChar == 'M' then "[01]"
-    else if recChar == 'K' then "[23]"
-    else if recChar == 'B' then "[123]"
-    else if recChar == 'D' then "[023]"
-    else if recChar == 'H' then "[013]"
-    else if recChar == 'V' then "[012]"
-    else if recChar == 'N' then "[0123]"
-    else if recChar == '?' then "?"
-    else if recChar == '*' then "?"
-    else errorWithoutStackTrace ("Unrecognized nucleotide: " ++ [inChar])
-     
--- | recodeLine recode and printys fasta lines 
--- if '>' then printys name otherwise recodes nucleotiedes
--- checks length all match as well
-recodeLine :: Handle -> Int -> String -> String -> IO ()
-recodeLine whereTo numCharacters indelMissing inLine =
-  if null inLine then errorWithoutStackTrace "Empty line in recodeLine"
-  else if  numCharacters == 0 then errorWithoutStackTrace "Zero characters to recode"
-  else
-    if head inLine == '>' then 
-      do hPutStr whereTo ((head $ words $ tail inLine) ++ " ")
-    else 
-      let outString = concat $ fmap (recodeNucleotide indelMissing) inLine
-      in
-      if length inLine /= numCharacters then errorWithoutStackTrace ("Number of charcaters varies " ++ show numCharacters ++ " v " ++ (show $ length outString))
-      else 
-        do hPutStrLn whereTo outString
+    (fmap getAA inThrees) <> "\n"
 
 
 -- | main driver
@@ -103,22 +103,15 @@ main :: IO ()
 main = 
   do 
        args <- getArgs
-       if (length args /= 2) 
-          then errorWithoutStackTrace "Need 2 arguments: Indels as missing or 5th state (?/5) and input fasta file"
-          else hPutStrLn stderr ("Openning fasta file " ++ (args !! 1))
-       let inDelType = head args
-       fastaFileHandle <- openFile (args !! 1) ReadMode
+       if (length args /= 1) 
+          then errorWithoutStackTrace "Need single argument: input fasta file"
+          else hPutStrLn stderr ("Openning fasta file " ++ (args !! 0))
+       fastaFileHandle <- openFile (args !! 0) ReadMode
        fastaFile <-  hGetContents fastaFileHandle
        let fastaLines = filter (/= []) $ lines fastaFile
        if (mod (length fastaLines)  2) > 0 
           then errorWithoutStackTrace "Odd number of input lines should be two per taxon"
           else do 
-            let numTaxa = quot (length fastaLines) 2
-            let numChars =  length (fastaLines !! 1)
-            hPutStr stdout ("xread ")
-            hPutStr stdout ("\'Data recoded from " ++ (args !! 1) ++ " with indels coded as " ++ inDelType  ++ "\' ")
-            hPutStrLn stdout (show numChars ++ " " ++ show numTaxa)
-            mapM_ (recodeLine stdout numChars inDelType) fastaLines
-            hPutStrLn stdout ";\ncc -.;\nproc /;\n"
-            hPutStrLn stderr (show numTaxa ++ " taxa recoded with " ++ show numChars ++ " characters")
+            let aminoLines = concat $ fmap convert2AminoAcids fastaLines
+            hPutStrLn stdout aminoLines
        
