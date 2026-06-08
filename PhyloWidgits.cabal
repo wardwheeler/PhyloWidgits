@@ -8,7 +8,7 @@ name:                PhyloWidgits
 version:             0.1.0.0
 synopsis:            Initial project template from stack
 description:         Please see README.md
-homepage:            https://github.com/githubuser/languages#readme
+homepage:            https://github.com/wardwheeler/PhyloWidgits.git
 license:             BSD3
 license-file:        LICENSE
 author:              Ward Wheeler
