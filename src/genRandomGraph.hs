@@ -1,6 +1,7 @@
 {- |
 Module      :  genRandTree
-Description :  Generates a "random" tree specifying leaf number and tree distributin (Uniform, Yule)
+Description :  Generates a "random" phylogenetic graph specifying leaf number, and tree distributin (Uniform, Yule), 
+               and network node number
 Copyright   :  (c) 2025 Ward C. Wheeler, Division of Invertebrate Zoology, AMNH. All rights reserved.
 License     :  
 
