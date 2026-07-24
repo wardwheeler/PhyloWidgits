@@ -199,7 +199,7 @@ hasTreeNodeWithAllNetworkChildren inGraph =
             in  ((not . null) nodesWithAllNetChildren, nodesWithAllNetChildren)
 
 
--- | hasAllNetChildren checks whether all (usually 2) childrenb of a vertex are network nodes
+-- | hasAllNetChildren checks whether all (usually 2) children of a vertex are network nodes
 hasAllNetChildren ∷ Gr a b → Node → Bool
 hasAllNetChildren inGraph inNode =
     let children = descendants inGraph inNode
@@ -892,7 +892,7 @@ flipLEdge ∷ LEdge b → LEdge b
 flipLEdge (u, v, w) = (v, u, w)
 
 
--- | isTree takes a graph and checks if there are anmy network nodes--if not returns True
+-- | isTree takes a graph and checks if there are any network nodes--if not returns True
 isTree ∷ Gr a b → Bool
 isTree inGraph =
     if G.isEmpty inGraph

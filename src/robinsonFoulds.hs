@@ -1,7 +1,8 @@
 {- |
 Module      :  robinsonFoulds
-Description :  Inputs 2 graphs and returns Robinson-Foulds distnace normalized by
+Description :  Inputs 2 graphs and returns Robinson-Foulds distance normalized by
                     resolution and leaf number
+                    the implementation is naive
 Copyright   :  (c) 2025 Ward C. Wheeler, Division of Invertebrate Zoology, AMNH. All rights reserved.
 License     :  
 
@@ -156,6 +157,35 @@ getSplitDist pairList1 pairList2 =
         in
         length splitNotInBoth
 
+-- | rooted descendents RF for networks as in Cordona et al. (2009) "Metrics for Phylogenetic Networks..." normalized
+-- by total number of non-trivial descendent clusters
+-- | getNormalizedNetworkRF takes two graphs that are rooted on same leaf and returns netowrk generalized RF as Double
+getNormalizedNetworkRF :: (Show a, Ord a, Eq a, Eq b) => LG.Gr a b → LG.Gr a b → Double
+getNormalizedNetworkRF reducedGraph1 reducedGraph2 = 
+    let roots1 = LG.getRoots reducedGraph1
+        roots2 = LG.getRoots reducedGraph2
+    in
+    if length roots1 /= 1 then errorWithoutStackTrace ("Graph one does not have a single root: " <> (show roots1))
+    else if length roots2 /= 1 then errorWithoutStackTrace ("Graph two does not have a single root: " <> (show roots2))
+    else if (head roots1) /= (head roots2) then errorWithoutStackTrace ("Graphs do not have the same root: " <> (show (head roots1,  head roots2)))
+    else 
+        let (_, _, treeNodes1, netNodes1) = LG.splitVertexList reducedGraph1
+            (_, _, treeNodes2, netNodes2) = LG.splitVertexList reducedGraph2
+            clusterNodes1 = fmap (:[]) $ treeNodes1 <> netNodes1
+            clusterNodes2 = fmap (:[]) $ treeNodes2 <> netNodes2
+
+            -- filter out single leaf clusters and sort for identity check
+            clusterList1 = fmap L.sort $ filter ((> 1).length) $ fmap fst $ fmap (LG.nodesAndEdgesAfter reducedGraph1) clusterNodes1
+            clusterList2 = fmap L.sort $ filter ((> 1).length) $ fmap fst $ fmap (LG.nodesAndEdgesAfter reducedGraph1) clusterNodes2
+            sameClusters = length $ L.intersect clusterList1 clusterList2
+
+            --no "all" or leaf clusters
+            uniqueNonTrivialClusters = length $ L.nub (clusterList1 <> clusterList2)
+
+        in
+        (fromIntegral (uniqueNonTrivialClusters - sameClusters)) / (fromIntegral uniqueNonTrivialClusters)
+        
+
 
 -- | Main function 
 main :: IO ()
@@ -239,17 +269,34 @@ main =
     let reducedGraph1 = LG.contractRootOut1Edge $ LG.contractIn1Out1Edges prunedGraph1
     let reducedGraph2 = LG.contractRootOut1Edge $ LG.contractIn1Out1Edges prunedGraph2
 
-    -- get non-trivial splits for each (if netowrk--via bridging edges)
+    -- get non-trivial splits for each (if network--via bridging edges)
     let edges1 = LG.edges reducedGraph1
     let edges2 = LG.edges reducedGraph2
 
     let splits1 = filter (/= ([],[])) $ fmap (getSplits reducedGraph1) $ filter (LG.isBridge reducedGraph1) edges1
     let splits2 = filter (/= ([],[])) $ fmap (getSplits reducedGraph2) $ filter (LG.isBridge reducedGraph2) edges2
 
+    -- if at least one gaph is a network use rooted descendents RF for networks
+    let isTree1 = LG.isTree reducedGraph1
+    let isTree2 = LG.isTree reducedGraph2
+
+
     -- get raw RF distances
-    let dist12 = getSplitDist splits1 splits2
-    let dist21 = getSplitDist splits2 splits1
+    let (dist12, dist21) = if isTree1 && isTree2 then
+                                (getSplitDist splits1 splits2, getSplitDist splits2 splits1)
+                           else 
+                                (0,0)
 
     -- get normalized RF
-    hPutStrLn stdout $ show $ (fromIntegral $ dist12 + dist21) / (fromIntegral $ (length splits1 + length splits2))
+    let normRF = if isTree1 && isTree2 then
+                    (fromIntegral $ dist12 + dist21) / (fromIntegral $ (length splits1 + length splits2))
+                 else getNormalizedNetworkRF reducedGraph1 reducedGraph2
+
+    if isTree1 && isTree2 then
+        hPutStrLn stderr "Both graphs are trees"
+    else 
+        hPutStrLn stderr "At least one graph is a network"
+
+    -- output normalized RF
+    hPutStrLn stdout $ show $ normRF
 
