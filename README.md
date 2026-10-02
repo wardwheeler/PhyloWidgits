@@ -63,7 +63,9 @@ pruneRandGraph
 	Prunes graph edges and vertices with 'rand' data key (or other)
 
 robinsonFoulds 
-	Generates normalized Robinson-Foulds distance (Ford andf Wheeler, 20016) modified to allow for different leaf sets.
+	Generates normalized Robinson-Foulds distance (Ford andf Wheeler, 20016) modified to allow for different leaf sets
+	for trees and Cordona et al. (2009) for networks. 
+	Inputs are two graph files in dot or enewick format and output to stdout.
  
 randomSequences
 	Naive random sequences generator based on to alphabet, average and variation length, and missing fraction
